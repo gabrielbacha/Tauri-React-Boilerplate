@@ -1,0 +1,57 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Tauri Starter",
+  "version": "0.1.0",
+  "identifier": "com.example.tauri-starter",
+  "build": {
+    "beforeDevCommand": "bun run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "bun run build",
+    "frontendDist": "../dist",
+    "removeUnusedCommands": true
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "title": "Tauri Starter",
+        "width": 1400,
+        "height": 918,
+        "minWidth": 800,
+        "minHeight": 600,
+        "center": true,
+        "visible": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "transparent": true,
+        "windowEffects": {
+          "effects": ["hudWindow"],
+          "state": "followsWindowActiveState"
+        }
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_YOUR_TAURI_UPDATER_PUBKEY",
+      "endpoints": [
+        "https://example.com/updates/{{target}}/{{current_version}}"
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

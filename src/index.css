@@ -1,0 +1,332 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/jetbrains-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Warm stone + amber palette. Committing to a distinctive, warm neutral feel
+   rather than the default shadcn cool grey. Tweak the OKLCH values below to
+   rebrand; radii + typography use CSS vars above. */
+:root {
+    /* Reserve vertical room for macOS traffic-light buttons when the native
+       title bar is hidden via `titleBarStyle: "Overlay"`. */
+    --titlebar-height: 28px;
+    --background: oklch(0.985 0.004 85);
+    --foreground: oklch(0.18 0.008 60);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.18 0.008 60);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.18 0.008 60);
+    --primary: oklch(0.67 0.17 48);
+    --primary-foreground: oklch(0.99 0.005 85);
+    --secondary: oklch(0.96 0.006 85);
+    --secondary-foreground: oklch(0.22 0.008 60);
+    --muted: oklch(0.96 0.006 85);
+    --muted-foreground: oklch(0.52 0.008 60);
+    --accent: oklch(0.94 0.012 75);
+    --accent-foreground: oklch(0.22 0.008 60);
+    --destructive: oklch(0.6 0.22 27);
+    --border: oklch(0.9 0.006 80);
+    --input: oklch(0.9 0.006 80);
+    --ring: oklch(0.67 0.17 48);
+    --chart-1: oklch(0.67 0.17 48);
+    --chart-2: oklch(0.55 0.12 200);
+    --chart-3: oklch(0.6 0.14 150);
+    --chart-4: oklch(0.72 0.15 85);
+    --chart-5: oklch(0.4 0.05 280);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.97 0.006 85);
+    --sidebar-foreground: oklch(0.22 0.008 60);
+    --sidebar-primary: oklch(0.67 0.17 48);
+    --sidebar-primary-foreground: oklch(0.99 0.005 85);
+    --sidebar-accent: oklch(0.94 0.012 75);
+    --sidebar-accent-foreground: oklch(0.22 0.008 60);
+    --sidebar-border: oklch(0.9 0.006 80);
+    --sidebar-ring: oklch(0.67 0.17 48);
+}
+
+.dark {
+    --background: oklch(0.145 0.008 60);
+    --foreground: oklch(0.95 0.008 80);
+    --card: oklch(0.19 0.008 60);
+    --card-foreground: oklch(0.95 0.008 80);
+    --popover: oklch(0.19 0.008 60);
+    --popover-foreground: oklch(0.95 0.008 80);
+    --primary: oklch(0.73 0.16 55);
+    --primary-foreground: oklch(0.16 0.01 50);
+    --secondary: oklch(0.24 0.008 60);
+    --secondary-foreground: oklch(0.95 0.008 80);
+    --muted: oklch(0.24 0.008 60);
+    --muted-foreground: oklch(0.68 0.01 70);
+    --accent: oklch(0.27 0.012 55);
+    --accent-foreground: oklch(0.95 0.008 80);
+    --destructive: oklch(0.7 0.19 22);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 14%);
+    --ring: oklch(0.73 0.16 55);
+    --chart-1: oklch(0.73 0.16 55);
+    --chart-2: oklch(0.65 0.13 200);
+    --chart-3: oklch(0.68 0.14 150);
+    --chart-4: oklch(0.78 0.14 85);
+    --chart-5: oklch(0.55 0.1 280);
+    --sidebar: oklch(0.17 0.008 60);
+    --sidebar-foreground: oklch(0.95 0.008 80);
+    --sidebar-primary: oklch(0.73 0.16 55);
+    --sidebar-primary-foreground: oklch(0.16 0.01 50);
+    --sidebar-accent: oklch(0.26 0.01 55);
+    --sidebar-accent-foreground: oklch(0.95 0.008 80);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.73 0.16 55);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply text-foreground;
+    background: color-mix(in oklch, var(--background) 40%, transparent);
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    }
+  html {
+    @apply font-sans antialiased;
+    background: transparent;
+    }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-tight;
+  }
+  code, kbd, pre, samp {
+    @apply font-mono;
+  }
+}
+
+/* Desktop shell: no page-level scrolling, no rubber-band. */
+html,
+body {
+  height: 100%;
+}
+
+body {
+  overflow: hidden;
+}
+
+/* Liquid glass: let the macOS NSVisualEffectView vibrancy (set via
+   `windowEffects` in tauri.conf.json) bleed through the main surfaces.
+   No `backdrop-filter` on purpose — vibrancy already blurs at the OS
+   level, and stacking a CSS blur makes the sidebar collapse animation
+   janky (it has to recompute over the whole moving surface). */
+[data-slot="sidebar-wrapper"] {
+  background: color-mix(in oklch, var(--sidebar) 55%, transparent) !important;
+}
+
+[data-slot="sidebar-inset"] {
+  background: color-mix(in oklch, var(--background) 62%, transparent) !important;
+}
+
+/* Reserve space at the top of the sidebar for the macOS traffic-light
+   buttons so the app logo stacks below them instead of underneath. */
+[data-slot="sidebar-header"] {
+  padding-top: calc(var(--titlebar-height) + 0.25rem);
+}
+
+/* Menu items flex-center their button. Button is `w-full` expanded
+   (centering is a no-op), `size-8!` collapsed (sits on the rail
+   centerline). Because the transition below synchronizes the button's
+   width with the outer sidebar's width, the icon slides from left to
+   center in lockstep with the sidebar shrinking — one continuous
+   motion instead of two separate animations fighting each other. */
+[data-slot="sidebar-menu-item"] {
+  display: flex;
+  justify-content: center;
+}
+
+/* Critical fix: shadcn's menu button declares `transition-[width,
+   height,padding]` but no duration, so width snaps instantly. That
+   was the "icon jumps to the middle while the sidebar is still
+   collapsing" bug. Match the sidebar container's 200ms linear curve
+   so they animate together. */
+[data-slot="sidebar-menu-button"] {
+  transition-duration: 200ms;
+  transition-timing-function: linear;
+}
+
+/* Hide every non-icon child of a menu button the instant collapse
+   begins. Text spans, label divs, and trailing icons snap out of
+   layout so the button's width transition never renders mid-truncation
+   characters. First child (the primary icon / Avatar) stays. */
+[data-collapsible="icon"] [data-slot="sidebar-menu-button"] > :not(:first-child) {
+  display: none;
+}
+
+/* Subtle depth: two soft radial gradients anchored top-left and bottom-right,
+   using the primary hue. Very low-saturation so it reads as atmosphere rather
+   than decoration. Adapts automatically via the primary color variable. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 0% 0%, color-mix(in oklch, var(--primary) 8%, transparent), transparent 60%),
+    radial-gradient(ellipse 80% 60% at 100% 100%, color-mix(in oklch, var(--primary) 6%, transparent), transparent 60%);
+}
+
+.dark body::before {
+  background:
+    radial-gradient(ellipse 80% 60% at 0% 0%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 60%),
+    radial-gradient(ellipse 80% 60% at 100% 100%, color-mix(in oklch, var(--primary) 8%, transparent), transparent 60%);
+}
+
+/* Scroll shell scoped to the app root container, not the page. */
+[data-ui-scroll-container] {
+  height: 100vh;
+  height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: none;
+}
+
+#root {
+  height: 100%;
+}
+
+@layer base {
+  body {
+    @apply select-none;
+  }
+
+  input,
+  textarea,
+  [contenteditable="true"],
+  pre,
+  code {
+    @apply select-text;
+  }
+
+  /* Desktop shell: anchors and images are draggable by default in WebKit
+     (emits URL/image drag payloads, like dragging a Safari bookmark).
+     Disable that so links and icons don't feel web-like. */
+  a,
+  img {
+    -webkit-user-drag: none;
+    user-drag: none;
+  }
+}
+
+@layer utilities {
+  .ui-selectable {
+    @apply select-text;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Frosted glass surface — drop onto headers, panels, popovers. */
+  .glass {
+    background: color-mix(in oklch, var(--card) 72%, transparent);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+  }
+
+  /* Short, snappy motion token for most interactive elements. */
+  .transition-snap {
+    transition-property: transform, opacity, background-color, border-color, color;
+    transition-duration: 140ms;
+    transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+}
+
+@keyframes sonar {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.6;
+  }
+  80% {
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+.animate-sonar {
+  animation: sonar 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+@keyframes fade-slide {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-slide {
+  animation: fade-slide 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
