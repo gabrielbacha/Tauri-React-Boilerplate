@@ -1,0 +1,57 @@
+# The single list of app commands the webview may call. build.rs reads the `allow-*` entries to
+# generate one deny-by-default permission per command; `pnpm run bindings:check` keeps it in sync
+# with the generated TypeScript bindings. Add new commands here when you add them to `ipc.rs`.
+
+[[set]]
+identifier = "app-commands"
+description = "Commands every variant of the application uses."
+permissions = [
+  "allow-app-get-info",
+  "allow-preferences-get",
+  "allow-preferences-migrate-interface",
+  "allow-preferences-update",
+  "allow-shortcuts-set",
+  "allow-shortcuts-reset",
+  "allow-shortcuts-record",
+  "allow-links-open-known-destination",
+  "allow-window-new",
+  "allow-window-get-session",
+  "allow-window-set-session",
+  "allow-window-quit",
+  "allow-lifecycle-set-dirty-state",
+  "allow-lifecycle-resolve-interruption",
+  "allow-updates-get-state",
+  "allow-updates-check",
+  "allow-updates-restart",
+  "allow-tasks-list",
+  "allow-tasks-cancel",
+  "allow-tasks-retry",
+  "allow-tasks-dismiss",
+  "allow-permissions-list",
+  "allow-permissions-request",
+  "allow-permissions-reset",
+  "allow-deep-links-get-protocol",
+  "allow-deep-links-ready",
+  "allow-diagnostics-get",
+  "allow-diagnostics-copy-report",
+  "allow-diagnostics-open-logs",
+  "allow-diagnostics-reload",
+  "allow-diagnostics-reset-preferences",
+]
+
+[[set]]
+identifier = "showcase-commands"
+description = "Example capabilities. The clean variant does not compile these commands."
+permissions = [
+  "allow-documents-list",
+  "allow-documents-get",
+  "allow-documents-create",
+  "allow-documents-save",
+  "allow-documents-delete",
+  "allow-documents-open-text",
+  "allow-documents-save-text",
+  "allow-sharing-copy-workspace-summary",
+  "allow-tasks-copy-digest",
+  "allow-tasks-clear-completed",
+  "allow-tasks-start-file-hash",
+]

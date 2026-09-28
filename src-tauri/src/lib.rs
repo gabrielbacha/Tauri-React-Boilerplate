@@ -1,69 +1,66 @@
-use tauri::webview::PageLoadEvent;
-use tauri_plugin_log::{Target, TargetKind};
-use tauri_plugin_opener::OpenerExt;
+//! Application entry: plugin order, state, the typed bridge, and event routing. Logic lives in modules.
 
-// Intercepts in-webview navigation. Anything external is handed off to the
-// system browser via the opener plugin; everything else continues as a
-// same-window navigation.
-fn external_navigation_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
-    tauri::plugin::Builder::<R>::new("external-navigation")
-        .on_navigation(|webview, url| {
-            let is_internal_host = matches!(
-                url.host_str(),
-                Some("localhost") | Some("127.0.0.1") | Some("tauri.localhost") | Some("::1")
-            );
-
-            let is_internal = url.scheme() == "tauri" || is_internal_host;
-            if is_internal {
-                return true;
-            }
-
-            let is_external_link = matches!(url.scheme(), "http" | "https" | "mailto" | "tel");
-            if is_external_link {
-                log::info!("opening external link in system browser: {}", url);
-                let _ = webview.opener().open_url(url.as_str(), None::<&str>);
-                return false;
-            }
-
-            true
-        })
-        .build()
-}
+pub mod app_config;
+pub mod application;
+pub mod commands;
+pub mod commands_registry;
+pub mod database;
+pub mod deep_links;
+pub mod diagnostics;
+pub mod dialogs;
+pub mod documents;
+pub mod error;
+pub mod events;
+pub mod interruption;
+pub mod ipc;
+pub mod known_links;
+pub mod menu;
+pub mod navigation;
+pub mod permissions;
+pub mod preferences;
+pub mod shutdown;
+pub mod state;
+pub mod storage;
+pub mod tasks;
+pub mod updater;
+pub mod windows;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let mut builder = tauri::Builder::default()
-        .plugin(
-            tauri_plugin_log::Builder::new()
-                .targets([
-                    Target::new(TargetKind::Stdout),
-                    Target::new(TargetKind::LogDir { file_name: None }),
-                    Target::new(TargetKind::Webview),
-                ])
-                .build(),
-        )
+    let bridge = ipc::builder();
+    let mut builder = tauri::Builder::default();
+
+    #[cfg(desktop)]
+    {
+        // Single instance must be registered first so a second launch exits before opening storage.
+        builder = builder
+            .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| application::on_second_instance(app, &argv)))
+            .plugin(tauri_plugin_deep_link::init())
+            .plugin(tauri_plugin_updater::Builder::new().build())
+            .plugin(tauri_plugin_process::init());
+    }
+
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_store::Builder::new().build())
-        .plugin(external_navigation_plugin());
-
-    #[cfg(desktop)]
-    {
-        builder = builder
-            .plugin(tauri_plugin_process::init())
-            .plugin(tauri_plugin_updater::Builder::new().build());
-    }
-
-    builder
-        .on_page_load(|webview, payload| {
-            if webview.label() == "main" && matches!(payload.event(), PageLoadEvent::Finished) {
-                log::info!("main webview finished loading");
-                let _ = webview.window().show();
-            }
+        .plugin(navigation::plugin())
+        .invoke_handler(bridge.invoke_handler())
+        .setup(move |app| {
+            bridge.mount_events(app);
+            #[cfg(debug_assertions)]
+            tauri::Manager::add_capability(app, include_str!("../capabilities-dev/debug.json"))?;
+            application::setup(app)
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .on_page_load(application::on_page_load)
+        .on_window_event(application::on_window_event)
+        .on_menu_event(menu::handle)
+        .build(tauri::generate_context!())
+        .unwrap_or_else(|error| {
+            eprintln!("Unable to start the application: {error}");
+            std::process::exit(1);
+        })
+        .run(|app, event| application::on_run_event(app, &event));
 }

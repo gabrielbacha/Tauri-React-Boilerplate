@@ -1,0 +1,6 @@
+{
+  "identifier": "debug-panel",
+  "description": "Development builds only: lets the debug panel inspect windows, paths, and app metadata.",
+  "windows": ["window-*"],
+  "permissions": ["core:window:default", "core:webview:default", "core:path:default", "core:app:default"]
+}

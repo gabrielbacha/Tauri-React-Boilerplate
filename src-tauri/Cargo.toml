@@ -1,34 +1,78 @@
 [package]
-name = "tauri-starter"
-version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-edition = "2021"
+name = "tauri-app"
+version = "1.0.0"
+description = "A secure, production-ready Tauri starter with React and TypeScript"
+authors = ["gabrielbacha"]
+license = "MIT"
+repository = "https://github.com/gabrielbacha/Tauri-React-Boilerplate"
+edition = "2024"
+rust-version = "1.98"
+publish = false
 
 [lib]
-name = "tauri_starter_lib"
+name = "tauri_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
-[build-dependencies]
-tauri-build = { version = "2", features = [] }
+[features]
+default = ["showcase"]
+# Example capabilities (documents, file hashing, sharing). `pnpm run setup --variant clean` removes it.
+showcase = []
 
-[dependencies]
-log = "0.4"
-tauri = { version = "2", features = ["macos-private-api"] }
-tauri-plugin-clipboard-manager = "2"
-tauri-plugin-dialog = "2"
-tauri-plugin-log = "2"
-tauri-plugin-notification = "2"
-tauri-plugin-opener = "2"
-tauri-plugin-os = "2"
-tauri-plugin-store = "2"
+[build-dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+hex = "0.4"
+log = "0.4"
+rusqlite = { version = "0.40", features = ["bundled", "backup"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11"
+specta = { version = "=2.0.0-rc.25", features = ["derive", "uuid"] }
+specta-typescript = "=0.0.12"
+tempfile = "3"
+tauri = { version = "2.12", features = [] }
+tauri-plugin-clipboard-manager = "2.4"
+tauri-plugin-dialog = "2.8"
+tauri-plugin-log = "2.10"
+tauri-plugin-notification = "2.5"
+tauri-plugin-opener = "2.6"
+tauri-plugin-os = "2.4"
+tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
+thiserror = "2"
+tokio = { version = "1", features = ["fs", "io-util", "macros", "rt", "sync", "time"] }
+tokio-util = "0.7"
+url = "2"
+uuid = { version = "1", features = ["serde", "v4"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-tauri-plugin-process = "2"
-tauri-plugin-updater = "2"
+tauri-plugin-deep-link = "2.5"
+tauri-plugin-process = "2.4"
+tauri-plugin-single-instance = { version = "2.5", features = ["deep-link"] }
+tauri-plugin-updater = "2.13"
 
+[dev-dependencies]
+tokio = { version = "1", features = ["fs", "io-util", "macros", "rt", "rt-multi-thread", "sync", "test-util", "time"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_qualifications = "warn"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+expect_used = "warn"
+todo = "warn"
+unwrap_used = "warn"
+# Tauri commands take `State`, `AppHandle`, and owned arguments by value.
+needless_pass_by_value = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
 
 [profile.dev]
 incremental = true
