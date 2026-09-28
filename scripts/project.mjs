@@ -7,6 +7,9 @@ import { pathToFileURL } from "node:url";
 export const ROOT = resolve(import.meta.dirname, "..");
 export const TEMPLATE_REPOSITORY = "gabrielbacha/Tauri-React-Boilerplate";
 
+export const updaterEndpoint = (owner, repo) =>
+  `https://github.com/${owner}/${repo}/releases/latest/download/latest.json`;
+
 export const paths = (root = ROOT) => ({
   packageJson: join(root, "package.json"),
   tauriConfig: join(root, "src-tauri/tauri.conf.json"),

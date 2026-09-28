@@ -73,6 +73,7 @@ pub fn builder() -> Builder<tauri::Wry> {
         .constant("COMMAND_REGISTRY", COMMANDS.to_vec())
         .constant("ZOOM_LEVELS", ZOOM_LEVELS)
         .constant("SHOWCASE_ENABLED", crate::app_config::SHOWCASE)
+        .constant("PRODUCT_NAME", crate::app_config::PRODUCT_NAME)
         .typ::<CommandSpec>()
 }
 

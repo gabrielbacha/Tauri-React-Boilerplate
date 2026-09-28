@@ -9,6 +9,7 @@ import Sun from "lucide-react/dist/esm/icons/sun.mjs";
 import type { ReactElement } from "react";
 import { toast } from "sonner";
 
+import { PRODUCT_NAME } from "@/shared/bindings";
 import type { ThemeMode } from "@/shared/desktop-api";
 
 import { useShortcutLabel, type WorkspaceAction, type WorkspaceActionId } from "../../actions/workspace-actions";
@@ -53,28 +54,28 @@ export default function AppMenu({
         <DropdownMenuTrigger asChild>
           <button type="button" className="profile-row" aria-label="Open app menu">
             <span className="profile-avatar">
-              {(appInfo?.name ?? "Electron App")
+              {(appInfo?.name ?? PRODUCT_NAME)
                 .split(/\s+/)
                 .slice(0, 2)
                 .map((part) => part[0])
                 .join("")}
             </span>
             <span className="min-w-0 flex-1 text-left">
-              <span className="block truncate text-[13px] font-medium">{appInfo?.name ?? "Electron App"}</span>
+              <span className="block truncate text-[13px] font-medium">{appInfo?.name ?? PRODUCT_NAME}</span>
             </span>
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" align="start" className="profile-menu">
           <DropdownMenuLabel className="profile-menu-heading">
             <span className="profile-avatar">
-              {(appInfo?.name ?? "Electron App")
+              {(appInfo?.name ?? PRODUCT_NAME)
                 .split(/\s+/)
                 .slice(0, 2)
                 .map((part) => part[0])
                 .join("")}
             </span>
             <span>
-              {appInfo?.name ?? "Electron App"}
+              {appInfo?.name ?? PRODUCT_NAME}
               <small>{appInfo ? `Version ${appInfo.version}` : "Loading…"}</small>
             </span>
           </DropdownMenuLabel>

@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 
 import { z } from "zod";
 
-import { TEMPLATE_REPOSITORY, cargoPackageName, escapeHtml, paths, readJson } from "./project.mjs";
+import { TEMPLATE_REPOSITORY, cargoPackageName, escapeHtml, paths, readJson, updaterEndpoint } from "./project.mjs";
+
+export { updaterEndpoint };
 
 const RESERVED_PROTOCOLS = new Set(["app", "http", "https", "file", "data", "javascript", "tauri", "asset", "ipc"]);
 
@@ -40,9 +42,6 @@ export const REQUIRED_ICONS = [
   "src-tauri/icons/icon.ico",
   "src-tauri/icons/icon.png",
 ];
-
-export const updaterEndpoint = (owner, repo) =>
-  `https://github.com/${owner}/${repo}/releases/latest/download/latest.json`;
 
 /** Read every identity file. */
 export function loadProject(root) {

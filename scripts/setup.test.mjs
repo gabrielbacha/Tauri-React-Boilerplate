@@ -65,3 +65,12 @@ test("parses flags strictly", () => {
   assert.throws(() => parseArguments(["--name", "a", "--name", "b"]), /Duplicate/);
   assert.throws(() => parseArguments(["--name"]), /requires a value/);
 });
+
+test("setup runs before pnpm install: it imports only Node.js built-ins", () => {
+  for (const file of ["setup.mjs", "project.mjs"]) {
+    const source = readFileSync(join(ROOT, "scripts", file), "utf8");
+    const packages = [...source.matchAll(/from "([^"]+)"/g)].map((match) => match[1]);
+    const external = packages.filter((name) => !name.startsWith("node:") && !name.startsWith("./"));
+    assert.deepEqual(external, [], file);
+  }
+});

@@ -4,8 +4,7 @@ import { test } from "node:test";
 import { configurationSchema, consistencyErrors, loadProject, releaseConfigurationErrors } from "./configuration.mjs";
 import { ROOT } from "./project.mjs";
 
-const project = () =>
-  structuredClone({ ...loadProject(ROOT), cargo: loadProject(ROOT).cargo, html: loadProject(ROOT).html });
+const project = () => structuredClone(loadProject(ROOT));
 
 test("the project files agree with each other", () => {
   assert.deepEqual(consistencyErrors(project()), []);
@@ -31,7 +30,10 @@ test("detects drift between package.json and the Tauri configuration", () => {
   drifted.tauri.identifier = "com.example.other";
   drifted.tauri.plugins["deep-link"].desktop.schemes = ["other"];
   drifted.tauri.app.withGlobalTauri = true;
-  drifted.capability.permissions = drifted.capability.permissions.filter((grant) => grant !== "showcase-commands");
+  const grants = drifted.capability.permissions;
+  drifted.capability.permissions = grants.includes("showcase-commands")
+    ? grants.filter((grant) => grant !== "showcase-commands")
+    : [...grants, "showcase-commands"];
   drifted.html = drifted.html.replace(/<title>.*<\/title>/, "<title>Other</title>");
   const errors = consistencyErrors(drifted).join("\n");
   for (const expected of ["identifier", "deep-link", "withGlobalTauri", "showcase-commands", "title"])
@@ -39,7 +41,11 @@ test("detects drift between package.json and the Tauri configuration", () => {
 });
 
 test("a release needs a renamed identity and an updater key", () => {
-  const errors = releaseConfigurationErrors(project()).join("\n");
+  // Exercise a fresh template even when this test runs in a renamed application.
+  const template = project();
+  template.pkg.productName = "Tauri App";
+  template.tauri.plugins.updater.pubkey = "";
+  const errors = releaseConfigurationErrors(template).join("\n");
   assert.match(errors, /Template identity/);
   assert.match(errors, /updater public key/);
 });

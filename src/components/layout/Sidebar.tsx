@@ -3,6 +3,7 @@ import Search from "lucide-react/dist/esm/icons/search.mjs";
 import Workflow from "lucide-react/dist/esm/icons/workflow.mjs";
 import type { ReactNode } from "react";
 
+import { PRODUCT_NAME } from "@/shared/bindings";
 import { APP_ROUTES } from "@/shared/routes";
 
 import { useShortcutLabel, type WorkspaceAction, type WorkspaceActionId } from "../../actions/workspace-actions";
@@ -59,7 +60,7 @@ export default function Sidebar({
           {settingsContent ?? (
             <>
               <div className="sidebar-header">
-                <span className="sidebar-product">{appInfo?.name ?? "Electron App"}</span>
+                <span className="sidebar-product">{appInfo?.name ?? PRODUCT_NAME}</span>
                 <Hint
                   label="Search commands"
                   shortcut={shortcutLabel("commandPalette", window.desktop.window.platform === "darwin")}

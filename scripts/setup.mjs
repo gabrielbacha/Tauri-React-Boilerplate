@@ -1,11 +1,11 @@
 // Rename the template: identity, protocol, variant, repository, and optionally an updater key.
 // Interactive in a terminal; every value can also be passed as a flag (see OPTIONS).
+// Uses only Node.js built-ins, so it runs before `pnpm install`.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 
-import { configurationSchema, updaterEndpoint } from "./configuration.mjs";
 import {
   ROOT,
   TEMPLATE_REPOSITORY,
@@ -15,6 +15,7 @@ import {
   readJson,
   run,
   setCargoPackageField,
+  updaterEndpoint,
   writeJson,
 } from "./project.mjs";
 
@@ -99,6 +100,13 @@ export function planSetup(root, answers) {
   const description = answers.description ?? pkg.description;
   const author = answers.author ?? pkg.author.name;
   const email = answers.email ?? pkg.author.email;
+  if (!description.trim() || !author.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    throw new Error("Description, author name, and a valid email are required.");
+  for (const [key, value] of Object.entries(destinations)) {
+    const url = URL.parse(value);
+    if (url?.protocol !== "https:" || url.username || url.password)
+      throw new Error(`${key} must be an HTTPS URL without credentials.`);
+  }
   const [owner, repo] = effectiveRepo.split("/");
 
   const nextPackage = structuredClone(pkg);
@@ -107,8 +115,6 @@ export function planSetup(root, answers) {
   nextPackage.appConfig = { ...pkg.appConfig, appId, protocol, storageNamespace, variant, destinations };
   nextPackage.repository = { ...pkg.repository, url: `${rootUrl}.git` };
   nextPackage.publish = { provider: "github", owner, repo };
-  const parsed = configurationSchema.safeParse(nextPackage);
-  if (!parsed.success) throw new Error(parsed.error.issues.map((issue) => issue.message).join("\n"));
 
   const nextTauri = structuredClone(tauri);
   nextTauri.productName = productName;
@@ -223,6 +229,8 @@ async function main() {
     if (!repository) stdout.write("Set the GitHub repository before release; template publishing links remain.\n");
     if (!args["skip-install"]) {
       run("pnpm", ["install"]);
+      // Keep the rewritten files in the repository's format so `pnpm run check` stays green.
+      run("pnpm", ["exec", "oxfmt", ...plan.writes.map(([file]) => file)]);
       // Regenerates the bindings for the chosen variant and refreshes Cargo.lock for the new package name.
       run("pnpm", ["run", "bindings"]);
     }

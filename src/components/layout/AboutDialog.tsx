@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { PRODUCT_NAME } from "@/shared/bindings";
 import { KNOWN_DESTINATIONS } from "@/shared/known-destinations";
 
 import { useDesktop } from "../../context/DesktopContext";
@@ -31,7 +32,7 @@ export default function AboutDialog({
           <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-sm font-medium text-background">
             {appInfo?.name.slice(0, 1) ?? "E"}
           </div>
-          <DialogTitle className="text-xl">{appInfo?.name ?? "Electron App"}</DialogTitle>
+          <DialogTitle className="text-xl">{appInfo?.name ?? PRODUCT_NAME}</DialogTitle>
           <DialogDescription>{appInfo?.description}</DialogDescription>
         </DialogHeader>
         <dl className="grid grid-cols-2 gap-3 rounded-xl bg-muted/60 p-4 text-sm">
