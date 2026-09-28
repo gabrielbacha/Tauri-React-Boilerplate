@@ -8,7 +8,6 @@ import {
   SunIcon,
 } from "lucide-react"
 
-import { Greet } from "@/components/greet"
 import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,16 +26,6 @@ export function SettingsPage() {
 
       <AppearanceCard />
       <PluginsCard />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Rust bridge</CardTitle>
-          <CardDescription>Invoke a Tauri command from the frontend.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Greet />
-        </CardContent>
-      </Card>
     </div>
   )
 }

@@ -5,7 +5,6 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 
 const TITLES: Record<string, string> = {
   "/": "Home",
-  "/dashboard": "Dashboard",
   "/settings": "Settings",
 }
 

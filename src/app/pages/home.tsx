@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { ArrowRightIcon, LayoutDashboardIcon, SettingsIcon } from "lucide-react"
+import { ArrowRightIcon, SettingsIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,26 +22,6 @@ export function HomePage() {
       </header>
 
       <section className="grid gap-4 sm:grid-cols-2">
-        <Card className="group transition-colors hover:border-primary/40">
-          <CardHeader>
-            <div className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <LayoutDashboardIcon className="size-4" />
-            </div>
-            <CardTitle className="mt-3">Dashboard example</CardTitle>
-            <CardDescription>
-              Cards, interactive charts and a drag-sortable table using @tanstack/react-table.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/dashboard">
-                View example
-                <ArrowRightIcon className="ml-1 size-3.5 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-
         <Card className="group transition-colors hover:border-primary/40">
           <CardHeader>
             <div className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">

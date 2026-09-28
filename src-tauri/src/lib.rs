@@ -2,13 +2,6 @@ use tauri::webview::PageLoadEvent;
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_opener::OpenerExt;
 
-// Example Tauri command. Remove or replace with your own. Called from the
-// frontend via `trackedInvoke<string>("greet", { name })`.
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
 // Intercepts in-webview navigation. Anything external is handed off to the
 // system browser via the opener plugin; everything else continues as a
 // same-window navigation.
@@ -65,7 +58,6 @@ pub fn run() {
     }
 
     builder
-        .invoke_handler(tauri::generate_handler![greet])
         .on_page_load(|webview, payload| {
             if webview.label() == "main" && matches!(payload.event(), PageLoadEvent::Finished) {
                 log::info!("main webview finished loading");

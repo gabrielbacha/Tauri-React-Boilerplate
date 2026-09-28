@@ -1,4 +1,4 @@
-export const DEBUG_EVENT_NAME = "ctui:debug"
+export const DEBUG_EVENT_NAME = "app:debug"
 
 type SerializedError = {
   name: string

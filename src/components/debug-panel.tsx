@@ -1,4 +1,3 @@
-"use client"
 
 import * as React from "react"
 import {
@@ -105,9 +104,9 @@ type DebugPanelTab = "overview" | "runtime" | "system" | "errors"
 
 const MAX_LOG_ITEMS = 10
 const COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)"
-const DEBUG_PANEL_SIDE_KEY = "ctui-debug-panel-side"
-const DEBUG_PANEL_TAB_KEY = "ctui-debug-panel-tab"
-const DEBUG_PANEL_ATTACH_KEY = "ctui-debug-panel-attach"
+const DEBUG_PANEL_SIDE_KEY = "debug-panel-side"
+const DEBUG_PANEL_TAB_KEY = "debug-panel-tab"
+const DEBUG_PANEL_ATTACH_KEY = "debug-panel-attach"
 const SIDE_PANEL_WIDTH = 480
 const BOTTOM_PANEL_HEIGHT = 360
 const DEBUG_PANEL_THEME_STYLE_LIGHT = {
@@ -529,7 +528,7 @@ export function DebugPanel() {
       return
     }
 
-    void trackedEmit("ctui://debug-panel-mounted", {
+    void trackedEmit("app://debug-panel-mounted", {
       route: locationState.pathname,
     })
   }, [locationState.pathname, tauriReady])

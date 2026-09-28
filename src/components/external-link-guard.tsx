@@ -1,8 +1,7 @@
-"use client"
 
 import { useEffect } from "react"
 
-const DEBUG_EVENT_NAME = "ctui:debug"
+const DEBUG_EVENT_NAME = "app:debug"
 const EXTERNAL_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"])
 
 function isModifiedClick(event: MouseEvent) {
