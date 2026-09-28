@@ -11,6 +11,7 @@ pub mod dialogs;
 pub mod documents;
 pub mod error;
 pub mod events;
+pub mod features;
 pub mod interruption;
 pub mod ipc;
 pub mod known_links;

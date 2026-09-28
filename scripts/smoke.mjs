@@ -3,17 +3,17 @@
 import { spawn } from "node:child_process";
 import { access, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
+
+import { cargoPackageName, isMain, targetDirectory } from "./project.mjs";
 
 const READY = "Window bridge ready";
 const FAILURES = /Uncaught interface error|Unhandled interface rejection|not allowed|\[ERROR\]|panicked/;
 const TIMEOUT_MS = Number(process.env.SMOKE_TIMEOUT_MS ?? 60_000);
 
-export async function binaryPath(root = process.cwd()) {
-  const manifest = await readFile(join(root, "src-tauri/Cargo.toml"), "utf8");
-  const name = /^\[package\][^[]*?^name\s*=\s*"([^"]+)"/ms.exec(manifest)?.[1];
-  if (!name) throw new Error("Unable to read the package name from src-tauri/Cargo.toml.");
-  return resolve(root, "src-tauri/target/debug", process.platform === "win32" ? `${name}.exe` : name);
+export async function binaryPath(root = process.cwd(), env = process.env) {
+  const name = cargoPackageName(await readFile(join(root, "src-tauri/Cargo.toml"), "utf8"));
+  return join(targetDirectory(root, env), "debug", process.platform === "win32" ? `${name}.exe` : name);
 }
 
 export function checkOutput(output) {
@@ -77,7 +77,7 @@ async function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url)) {
   main().catch((error) => {
     console.error(error.message);
     process.exitCode = 1;

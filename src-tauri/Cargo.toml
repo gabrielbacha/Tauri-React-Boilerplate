@@ -10,13 +10,8 @@ rust-version = "1.98"
 publish = false
 
 [lib]
-name = "tauri_app_lib"
+name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
-
-[features]
-default = ["showcase"]
-# Example capabilities (documents, file hashing, sharing). `pnpm run setup --variant clean` removes it.
-showcase = []
 
 [build-dependencies]
 serde = { version = "1", features = ["derive"] }

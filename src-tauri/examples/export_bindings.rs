@@ -5,7 +5,7 @@ fn main() {
         eprintln!("usage: export_bindings <output.ts>");
         std::process::exit(2);
     };
-    if let Err(error) = tauri_app_lib::ipc::export(std::path::Path::new(&path)) {
+    if let Err(error) = app_lib::ipc::export(std::path::Path::new(&path)) {
         eprintln!("Unable to export bindings: {error}");
         std::process::exit(1);
     }

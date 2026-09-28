@@ -23,6 +23,6 @@ test("finds the debug binary from the Cargo package name", async () => {
   const root = await mkdtemp(join(tmpdir(), "smoke-test-"));
   await mkdir(join(root, "src-tauri"));
   await writeFile(join(root, "src-tauri/Cargo.toml"), '[package]\nname = "my-app"\nversion = "1.0.0"\n');
-  const binary = await binaryPath(root);
+  const binary = await binaryPath(root, {});
   assert.match(binary, /src-tauri[/\\]target[/\\]debug[/\\]my-app(\.exe)?$/);
 });

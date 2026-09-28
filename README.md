@@ -1,146 +1,93 @@
-# Tauri Starter
+# Tauri App Starter
 
-Opinionated Tauri 2 + React 19 starter. Drop in your app logic and ship.
+A production foundation for desktop applications with Tauri 2, a typed Rust backend, React, TypeScript, Tailwind CSS, and TanStack Router. It is the Tauri counterpart of the [Electron starter](https://github.com/gabrielbacha/Electron-Builder-GB-Boilerplate): the same interface, features, and release contract, with a small binary and deny-by-default capabilities.
 
-## Stack
+## Start here
 
-- **Tauri 2** — desktop shell, Rust backend
-- **React 19** + **TypeScript** (strict)
-- **Vite 7** — dev server & bundler
-- **TanStack Router** — type-safe routing (code-based, no codegen)
-- **TanStack Query** — server state & caching
-- **Zustand** — global client state (with localStorage persistence)
-- **shadcn/ui** + **Tailwind CSS v4** — components & styling
-- **react-hook-form** + **zod** — forms & validation
-- **Bun** — package manager & runtime
-
-## Getting started
+Requirements: Node.js 24, pnpm 12, and Rust (the version in `src-tauri/rust-toolchain.toml` installs itself). Linux also needs the [Tauri system packages](https://v2.tauri.app/start/prerequisites/).
 
 ```bash
-bun install
-bun run tauri dev
+pnpm install
+pnpm run setup
+pnpm dev
 ```
 
-Frontend only: `bun run dev` (then open http://localhost:1420).
+For a renamed starter with explicit identity and an updater key:
 
-## Scripts
-
-| Command               | What it does                     |
-| --------------------- | -------------------------------- |
-| `bun run dev`         | Vite dev server                  |
-| `bun run build`       | Type-check + production build    |
-| `bun run tauri dev`   | Run the Tauri desktop app in dev |
-| `bun run tauri build` | Produce platform installers      |
-| `bun run typecheck`   | `tsc --noEmit`                   |
-| `bun run lint`        | ESLint                           |
-| `bun run format`      | Prettier                         |
-
-## Project layout
-
-```
-src/
-├── main.tsx              # entry point: Providers + RouterProvider
-├── app/
-│   ├── router.tsx        # route tree (code-based TanStack Router)
-│   ├── root-layout.tsx   # shell: sidebar + header + <Outlet>
-│   └── pages/            # route components
-│       ├── home.tsx
-│       ├── dashboard.tsx
-│       └── settings.tsx
-├── components/
-│   ├── providers.tsx     # Error boundary, Query, Theme, Tooltip, Toaster
-│   ├── error-boundary.tsx
-│   ├── theme-provider.tsx
-│   ├── theme-toggle.tsx
-│   ├── debug-panel.tsx   # dev-only, Cmd/Ctrl+D
-│   ├── external-link-guard.tsx
-│   └── ui/               # shadcn/ui primitives
-├── lib/
-│   ├── env.ts            # zod-validated env vars
-│   ├── query-client.ts   # TanStack Query client
-│   ├── tauri.ts          # trackedInvoke / trackedEmit
-│   └── debug-events.ts
-├── stores/
-│   └── app-store.ts      # Zustand example (persisted)
-└── index.css             # theme tokens, fonts, background
-
-src-tauri/
-├── src/lib.rs            # plugin registration, commands
-├── capabilities/         # permission manifests per window
-└── tauri.conf.json       # app metadata, bundle config
+```bash
+pnpm run setup --name "My App" --app-id com.example.myapp --repo owner/my-app --variant clean --updater-key ~/.tauri/my-app.key
 ```
 
-## Adapting this starter
+Setup writes the product name, package name, application ID, URL protocol, repository, variant, and updater key to `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, the capability, and `index.html`, or restores them all if a write fails. It then installs dependencies and regenerates the bindings. Treat the application ID as permanent once released. Replace the icons with `pnpm tauri icon <your-icon.png>`. Run `pnpm run verify:config` to check the result.
 
-Before writing any feature code, update these identity fields:
+## Commands
 
-1. `package.json` → `name`
-2. `src-tauri/Cargo.toml` → `name`, `description`, `authors`, `lib.name`
-3. `src-tauri/src/main.rs` → match the new `lib.name`
-4. `src-tauri/tauri.conf.json` → `productName`, `identifier`, `windows[0].title`
-5. `index.html` → `<title>`
-6. `src/components/app-sidebar.tsx` → brand label (currently "Tauri Starter")
-7. Replace icons in `src-tauri/icons/` (use `bun run tauri icon <path-to-1024.png>`)
+| Command                               | Purpose                                                                     |
+| ------------------------------------- | --------------------------------------------------------------------------- |
+| `pnpm dev`                            | Start the app with interface hot reload                                     |
+| `pnpm run check`                      | Lint, format check, typecheck, unit and script tests, Rust checks, bindings |
+| `pnpm run fix`                        | Apply lint and format fixes (Oxlint, Oxfmt, rustfmt)                        |
+| `pnpm run bindings`                   | Regenerate `src/shared/bindings.ts` from the Rust commands                  |
+| `pnpm run package`                    | Build and verify a debug app without installers                             |
+| `pnpm run smoke`                      | Launch that build with a temporary profile and check it starts cleanly      |
+| `pnpm run make`                       | Build installers for this computer into `dist/release-input/`               |
+| `pnpm run release`                    | Validate, build, and assemble a local release; add `--publish` to upload    |
+| `pnpm run test:e2e`                   | WebdriverIO tests through tauri-driver (Linux, Windows)                     |
+| `pnpm run test:e2e:docker`            | The Linux end-to-end suite in Docker, from any computer                     |
+| `pnpm run test:template`              | Rename both variants in temporary copies, then check, build, and launch     |
+| `pnpm run verify:config`              | Check identity, links, icons, and release prerequisites                     |
+| `pnpm run scaffold:feature -- <name>` | Create a Rust command with tests and wiring steps                           |
 
-## Tauri plugins pre-wired
+## Architecture
 
-| Plugin            | Rust crate                       | Frontend API                           |
-| ----------------- | -------------------------------- | -------------------------------------- |
-| opener            | `tauri-plugin-opener`            | `@tauri-apps/plugin-opener`            |
-| log               | `tauri-plugin-log`               | `@tauri-apps/plugin-log`               |
-| dialog            | `tauri-plugin-dialog`            | `@tauri-apps/plugin-dialog`            |
-| notification      | `tauri-plugin-notification`      | `@tauri-apps/plugin-notification`      |
-| clipboard-manager | `tauri-plugin-clipboard-manager` | `@tauri-apps/plugin-clipboard-manager` |
-| os                | `tauri-plugin-os`                | `@tauri-apps/plugin-os`                |
-| store             | `tauri-plugin-store`             | `@tauri-apps/plugin-store`             |
-| process (desktop) | `tauri-plugin-process`           | `@tauri-apps/plugin-process`           |
-| updater (desktop) | `tauri-plugin-updater`           | `@tauri-apps/plugin-updater`           |
+- `src-tauri/src/` owns windows, storage, updates, dialogs, and every privileged operation. `lib.rs` only wires plugins and events; `application.rs` holds startup, windows, deep links, and the quit flow.
+- `src-tauri/src/ipc.rs` lists every command and event. tauri-specta exports them to `src/shared/bindings.ts`; the compiler and `pnpm run bindings:check` keep both sides in step.
+- `src/platform/desktop.ts` adapts the bindings to one `window.desktop` API, so interface code never calls `invoke` directly.
+- `src/shared/` holds types from the bindings and pure helpers. `src/` otherwise is an ordinary React application.
 
-Add or remove plugins in `src-tauri/src/lib.rs` and grant permissions in
-`src-tauri/capabilities/default.json`. See live examples on `/settings`.
+The command registry (labels and default shortcuts) lives in Rust and is exported to TypeScript, so the macOS menu, toolbar, command palette, and shortcut settings always agree. On Windows and Linux the windows are frameless: the in-window app menu and a keyboard handler replace the native menu.
 
-## Calling Rust from the frontend
+### Features
 
-```tsx
-import { trackedInvoke } from "@/lib/tauri";
+- Saved documents in SQLite with revision checks. Concurrent edits in two windows keep your draft and offer a reload or a copy.
+- UTF-8 `.txt`/`.md` import up to 10,000 characters and 40 KB, and atomic export.
+- A background queue (2 running, 10 waiting, 20 kept) with progress, cancel, retry, and recovery of interrupted work after a restart, up to three attempts. The SHA-256 example never exposes the file path.
+- Quit, update restart, and window close ask first when work is unsaved or running, in the window or through a native dialog.
+- Typed deep links (`<protocol>://open/home`, `/settings`, `/tasks/<uuid>`) through the deep-link and single-instance plugins.
+- Deny-by-default permissions for notifications, camera, and microphone, with session or remembered decisions.
+- Versioned preferences with field-by-field migration, recordable shortcuts with conflict and reserved-key checks, zoom, motion, and theme.
+- Multiple windows (up to 20) with optional restore of layouts and open documents.
+- Sanitized diagnostics, copy report, open logs, reload, and reset preferences.
+- A development-only debug panel (Cmd/Ctrl+D) that shows every command with its duration and result, runtime events, window state, and console output.
 
-const message = await trackedInvoke<string>("greet", { name: "world" });
-```
+Choose `--variant clean` for an empty workspace. The clean variant does not grant the example commands to the webview.
 
-Define new commands in `src-tauri/src/lib.rs` and register them in
-`invoke_handler!`. `trackedInvoke` logs every call to the dev-only debug panel.
+## Storage and recovery
 
-## Environment variables
+Data lives in `<appData>/<appId>` (`<appId>.development` for development builds), with logs in `logs/`. Before any store opens, startup proves the folder is writable, refuses settings or a database from a newer version, and renames unreadable settings to `.corrupt-…` beside the original instead of deleting them. Migrations run in one transaction. Debug builds accept `TAURI_APP_PROFILE` for test profiles; release builds ignore it. See [database backup and restore](docs/recipes/database-backup.md) and [secret storage](docs/recipes/secret-storage.md).
 
-Public vars must be `VITE_`-prefixed. Add them to the schema in
-`src/lib/env.ts` for compile-time safety — invalid env throws at startup
-instead of becoming a silent `undefined`. Copy `.env.example` → `.env.local`.
+## Distribution
 
-## Theming
+Pushing a `vX.Y.Z` tag runs the release workflow. The tag must match `package.json`. Quality checks, the Linux smoke test, and end-to-end tests run first; then macOS (Apple silicon and Intel), Windows x64, and Linux x64 build in parallel. The publish job checks every artifact name, version, and signature, writes the updater feed `latest.json` and `SHA256SUMS.txt`, and creates the GitHub release. Artifact names use the package name and never contain spaces, so update URLs stay valid.
 
-- Light/dark/system with `next-themes`-style context in `theme-provider.tsx`
-- Toggle via the header dropdown or press `D`
-- Palette lives in `src/index.css` as OKLCH CSS vars — edit `--primary`,
-  `--background`, etc. to rebrand. Default is warm stone + amber.
-- Fonts: Geist (UI) + JetBrains Mono (code). Swap via `@fontsource-variable/*`.
+Only builds signed with the updater key include updater archives; others ship installers only. Local releases run the same assembly into `dist/release/`. A `GH_TOKEN` alone never publishes; pass `--publish`.
 
-## Debug panel
+### Signing environment
 
-Dev-only. Press `Cmd/Ctrl+D` to toggle. Shows window/app/theme diagnostics,
-invoke call log with timing, runtime events, console capture, and error
-tracking. Dockable to left/right/bottom (persisted in sessionStorage).
+| Variable                                                                    | Purpose                                                                                                                    |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`           | Updater signatures (required for update feeds)                                                                             |
+| `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY` | macOS code signing                                                                                                         |
+| `APPLE_API_KEY`, `APPLE_API_ISSUER`, `APPLE_API_KEY_PATH`                   | macOS notarization. In Actions, store the base64 `.p8` as the `APPLE_API_KEY` secret and the key ID as `APPLE_API_KEY_ID`. |
 
-## Updater
+Windows code signing uses `bundle.windows.signCommand` or a certificate thumbprint in `tauri.conf.json`. Development builds need no credentials.
 
-Stub config in `tauri.conf.json` points at `https://example.com/...` with a
-placeholder pubkey. Generate a signing key (`bun run tauri signer generate`),
-wire a release server, and fill in both fields before shipping auto-updates.
+## Security defaults
 
-## Notes
+Strict CSP, frozen prototypes, no global Tauri object, deny-by-default app commands, plugin access only from Rust, blocked navigation and new windows, typed deep links, and signed updates. Read [SECURITY.md](SECURITY.md) before adding commands, permissions, or remote content.
 
-- No router codegen — route tree is declared in `src/app/router.tsx`
-- No `Inter`/`Roboto`/system defaults; Geist is the default UI font
-- `body { overflow: hidden }` + a `[data-ui-scroll-container]` root makes the
-  shell feel native (no rubber-band, no page-level scroll)
-- External links (`http`, `https`, `mailto`, `tel`) are intercepted by a custom
-  Rust plugin and opened in the system browser, not the webview
+## Verification
+
+CI runs when started manually in GitHub Actions. It runs `pnpm run check`, configuration checks, a debug build, the smoke test, and the end-to-end suite under Xvfb on Linux, plus build and smoke tests on macOS and Windows. The `template` option also renames and verifies both variants.
+
+tauri-driver does not support macOS, so macOS interaction stays manual QA; see the [QA checklist](docs/development/QA.md). See [extending the app](docs/development/EXTENDING.md) and [upgrading](docs/development/UPGRADING.md).

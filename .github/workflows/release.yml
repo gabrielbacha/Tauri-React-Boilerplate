@@ -1,84 +1,134 @@
 name: Release
 
 on:
-  workflow_dispatch:
   push:
-    tags:
-      - "v*"
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  publish-tauri:
-    permissions:
-      contents: write
+  quality:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev \
+            librsvg2-dev webkit2gtk-driver xvfb dbus-x11
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+        working-directory: src-tauri
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate version tag
+        run: node -e "const p=require('./package.json'); if ('v'+p.version !== process.env.GITHUB_REF_NAME) throw new Error('Tag and package version differ')"
+      - run: pnpm run check
+      - run: node scripts/verify-config.mjs --strict
+      - run: pnpm run package
+      - run: dbus-run-session -- xvfb-run -a pnpm run smoke
+      - run: cargo install tauri-driver --locked
+      - run: dbus-run-session -- xvfb-run -a pnpm run test:e2e
+
+  build:
+    needs: quality
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: "Windows"
-            platform: "windows-latest"
-            args: ""
-          - name: "macOS Apple Silicon"
-            platform: "macos-latest"
-            args: "--target aarch64-apple-darwin"
-          - name: "macOS Intel"
-            platform: "macos-latest"
-            args: "--target x86_64-apple-darwin"
-          - name: "Linux"
-            platform: "ubuntu-22.04"
-            args: ""
-    runs-on: ${{ matrix.platform }}
-
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          # The oldest supported Ubuntu keeps the AppImage compatible with more distributions.
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    env:
+      # Updater archives are signed with this key. Without it, the build ships installers only.
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install Linux system dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+      - uses: actions/checkout@v4
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf
-
-      - name: Install frontend dependencies
-        run: bun install
-
-      - name: Build and publish
-        id: tauri
-        uses: tauri-apps/tauri-action@action-v0.6.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: v__VERSION__
-          releaseName: v__VERSION__
-          releaseBody: See the assets to download this version.
-          releaseDraft: true
-          prerelease: false
-          generateReleaseNotes: true
-          retryAttempts: 2
-          args: ${{ matrix.args }}
-          assetNamePattern: "[name]-[version]-[platform]-[arch][ext]"
-          includeUpdaterJson: false
-
-      - name: Release summary
-        if: steps.tauri.outputs.releaseHtmlUrl != ''
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Install the pinned Rust toolchain and target
+        shell: bash
+        working-directory: src-tauri
         run: |
-          {
-            echo "## Tauri Release"
-            echo ""
-            echo "- Platform: \`${{ matrix.name }}\`"
-            echo "- Version: \`${{ steps.tauri.outputs.appVersion }}\`"
-            echo "- Release: ${{ steps.tauri.outputs.releaseHtmlUrl }}"
-            echo "- Artifacts: \`${{ steps.tauri.outputs.artifactPaths }}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.target }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Prepare Apple notarization key
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          if [[ -n "$APPLE_API_KEY_BASE64" ]]; then
+            printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+            echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+          fi
+      - name: Validate update prerequisites
+        if: env.TAURI_SIGNING_PRIVATE_KEY != ''
+        run: node scripts/verify-config.mjs --strict --updates
+      - name: Build, verify, and collect installers
+        run: node scripts/make.mjs --target ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: dist/release-input/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-input
+      - name: Validate artifacts and write the update feed and checksums
+        run: node scripts/assemble-release.mjs release-input release --require-mac-architectures
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mapfile -d '' files < <(find release -maxdepth 1 -type f -print0)
+          gh release create "$GITHUB_REF_NAME" "${files[@]}" --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
