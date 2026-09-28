@@ -1,0 +1,8 @@
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./shell.css";
+@import "./activity.css";
+@import "./settings.css";
+@import "./controls.css";
+
+@import "./dashboard.css";

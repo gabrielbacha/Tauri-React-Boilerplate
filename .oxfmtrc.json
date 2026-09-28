@@ -1,0 +1,27 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": false,
+  "trailingComma": "all",
+  "tabWidth": 2,
+  "semi": true,
+  "endOfLine": "lf",
+  "printWidth": 120,
+  "sortImports": true,
+  "sortPackageJson": false,
+  "sortTailwindcss": {
+    "stylesheet": "./src/styles/global.css",
+    "functions": ["cn", "clsx", "cva"]
+  },
+  "ignorePatterns": [
+    "/.vscode",
+    "/dist",
+    "/coverage",
+    "/.vite",
+    "/node_modules",
+    "/src-tauri/target",
+    "/src-tauri/gen",
+    "/src/shared/bindings.ts",
+    "pnpm-lock.yaml",
+    "Cargo.lock"
+  ]
+}

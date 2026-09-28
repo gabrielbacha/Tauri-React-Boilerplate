@@ -11,37 +11,12 @@ use crate::events::{
 };
 use crate::preferences::ZOOM_LEVELS;
 
-#[cfg(showcase)]
-macro_rules! app_commands {
-    ($($command:tt)*) => {
-        collect_commands![
-            $($command)*
-            c::showcase::documents_list,
-            c::showcase::documents_get,
-            c::showcase::documents_create,
-            c::showcase::documents_save,
-            c::showcase::documents_delete,
-            c::showcase::documents_open_text,
-            c::showcase::documents_save_text,
-            c::showcase::sharing_copy_workspace_summary,
-            c::showcase::tasks_copy_digest,
-            c::showcase::tasks_clear_completed,
-            c::showcase::tasks_start_file_hash,
-        ]
-    };
-}
-
-#[cfg(not(showcase))]
-macro_rules! app_commands {
-    ($($command:tt)*) => { collect_commands![$($command)*] };
-}
-
 pub fn builder() -> Builder<tauri::Wry> {
     Builder::<tauri::Wry>::new()
         .error_handling(ErrorHandlingMode::Throw)
         // Every type serializes and deserializes with the same shape.
         .disable_serde_phases()
-        .commands(app_commands![
+        .commands(collect_commands![
             c::app_get_info,
             c::preferences_get,
             c::preferences_migrate_interface,
@@ -73,6 +48,17 @@ pub fn builder() -> Builder<tauri::Wry> {
             c::diagnostics_open_logs,
             c::diagnostics_reload,
             c::diagnostics_reset_preferences,
+            c::showcase::documents_list,
+            c::showcase::documents_get,
+            c::showcase::documents_create,
+            c::showcase::documents_save,
+            c::showcase::documents_delete,
+            c::showcase::documents_open_text,
+            c::showcase::documents_save_text,
+            c::showcase::sharing_copy_workspace_summary,
+            c::showcase::tasks_copy_digest,
+            c::showcase::tasks_clear_completed,
+            c::showcase::tasks_start_file_hash,
         ])
         .events(collect_events![
             PreferencesChanged,

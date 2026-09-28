@@ -1,0 +1,108 @@
+.task-feed {
+  width: 100%;
+  padding-top: 16px;
+}
+
+.task-feed-item {
+  display: flex;
+  gap: 13px;
+  padding: 18px 4px;
+  border-top: 1px solid var(--stroke);
+  scroll-margin-top: 18px;
+}
+
+.task-file-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border-radius: 9px;
+  background: hsl(var(--muted));
+}
+
+.task-file-icon svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.6;
+}
+
+.task-feed-item h2 {
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
+  font-weight: var(--font-weight-semibold);
+}
+
+.task-feed-item p {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+}
+
+.task-status {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  text-transform: capitalize;
+}
+
+.task-status[data-status="completed"] {
+  color: var(--success);
+}
+
+.task-status[data-status="failed"] {
+  color: hsl(var(--destructive));
+}
+
+.task-menu-button {
+  width: 28px;
+  height: 28px;
+  flex-basis: 28px;
+  color: var(--text-secondary);
+}
+
+.task-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+}
+
+.task-progress {
+  height: 3px;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 999px;
+  background: hsl(var(--muted));
+}
+
+.task-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: hsl(var(--foreground));
+  transition: width 150ms ease;
+}
+
+.task-digest {
+  display: block;
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+  border-radius: 8px;
+  background: hsl(var(--muted));
+  padding: 10px 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+}
+
+.task-feed-item:focus {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
+}

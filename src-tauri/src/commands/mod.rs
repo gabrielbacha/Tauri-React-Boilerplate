@@ -3,7 +3,6 @@
 //! Adding a command: write it here, add it to `ipc::builder`, add `allow-<name>` to
 //! `permissions/app-commands.toml`, then run `pnpm run bindings`.
 
-#[cfg(showcase)]
 pub mod showcase;
 
 use serde::Deserialize;

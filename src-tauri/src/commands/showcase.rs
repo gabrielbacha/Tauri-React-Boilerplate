@@ -1,5 +1,7 @@
 //! Example capabilities: saved documents, text import and export, file hashing, and sharing.
-//! The clean variant does not compile this module.
+//!
+//! The clean variant does not grant these commands to the webview (`showcase-commands` in the capability),
+//! and each command also refuses to run there.
 
 use serde::Deserialize;
 use specta::Type;
@@ -8,7 +10,7 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_specta::Event;
 use uuid::Uuid;
 
-use crate::app_config::PRODUCT_NAME;
+use crate::app_config::{PRODUCT_NAME, SHOWCASE};
 use crate::database::{DocumentInput, DocumentSummary, DocumentWriteResult, SavedDocument, validate_text};
 use crate::dialogs;
 use crate::documents::{self, SaveTextInput, SavedText, TextDocument};
@@ -21,6 +23,14 @@ use crate::tasks::{BackgroundTask, TaskStatus};
 type Window = WebviewWindow;
 const TEXT_FILTER: (&str, &[&str]) = ("Text and Markdown", &["txt", "md"]);
 
+/// The caller is a known window and the showcase is part of this build.
+fn caller(state: &AppState, window: &Window) -> AppResult<String> {
+    if !SHOWCASE {
+        return Err(AppError::unavailable("This feature is not included in this build."));
+    }
+    state.caller(window)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn documents_list(
@@ -28,7 +38,7 @@ pub fn documents_list(
     window: Window,
     offset: Option<u32>,
 ) -> AppResult<Vec<DocumentSummary>> {
-    state.caller(&window)?;
+    caller(&state, &window)?;
     let offset = offset.unwrap_or(0);
     if offset > 1_000_000 {
         return Err(AppError::invalid("Invalid page."));
@@ -39,7 +49,7 @@ pub fn documents_list(
 #[tauri::command]
 #[specta::specta]
 pub fn documents_get(state: State<'_, AppState>, window: Window, id: Uuid) -> AppResult<Option<SavedDocument>> {
-    state.caller(&window)?;
+    caller(&state, &window)?;
     state.database.get_document(id)
 }
 
@@ -51,7 +61,7 @@ pub fn documents_create(
     window: Window,
     input: DocumentInput,
 ) -> AppResult<SavedDocument> {
-    state.caller(&window)?;
+    caller(&state, &window)?;
     let document = state.database.create_document(input)?;
     let _ = DocumentsChanged(document.id).emit(&app);
     Ok(document)
@@ -67,7 +77,7 @@ pub fn documents_save(
     revision: u32,
     input: DocumentInput,
 ) -> AppResult<DocumentWriteResult> {
-    state.caller(&window)?;
+    caller(&state, &window)?;
     let result = state.database.save_document(id, revision, input)?;
     if matches!(result, DocumentWriteResult::Saved { .. }) {
         let _ = DocumentsChanged(id).emit(&app);
@@ -84,7 +94,7 @@ pub fn documents_delete(
     id: Uuid,
     revision: u32,
 ) -> AppResult<bool> {
-    state.caller(&window)?;
+    caller(&state, &window)?;
     let deleted = state.database.delete_document(id, revision)?;
     if deleted {
         let _ = DocumentsChanged(id).emit(&app);
@@ -99,7 +109,7 @@ pub async fn documents_open_text(
     state: State<'_, AppState>,
     window: Window,
 ) -> AppResult<Option<TextDocument>> {
-    state.caller(&window)?;
+    caller(&state, &window)?;
     let Some(path) = dialogs::pick_file(&app, &window, "Import text", Some(TEXT_FILTER)).await else {
         return Ok(None);
     };
@@ -117,7 +127,7 @@ pub async fn documents_save_text(
     window: Window,
     input: SaveTextInput,
 ) -> AppResult<Option<SavedText>> {
-    state.caller(&window)?;
+    caller(&state, &window)?;
     documents::validate_save_input(&input)?;
     let Some(path) = dialogs::save_file(&app, &window, "Export text", &input.suggested_name, TEXT_FILTER).await else {
         return Ok(None);
@@ -143,7 +153,7 @@ pub fn sharing_copy_workspace_summary(
     window: Window,
     input: WorkspaceSummaryInput,
 ) -> AppResult<()> {
-    state.caller(&window)?;
+    caller(&state, &window)?;
     validate_text(&input.draft)?;
     let hashes = state
         .tasks
@@ -163,7 +173,7 @@ pub fn sharing_copy_workspace_summary(
 #[tauri::command]
 #[specta::specta]
 pub fn tasks_copy_digest(app: AppHandle, state: State<'_, AppState>, window: Window, id: Uuid) -> AppResult<()> {
-    state.caller(&window)?;
+    caller(&state, &window)?;
     let digest = state
         .tasks
         .find(id)
@@ -177,7 +187,7 @@ pub fn tasks_copy_digest(app: AppHandle, state: State<'_, AppState>, window: Win
 #[tauri::command]
 #[specta::specta]
 pub fn tasks_clear_completed(state: State<'_, AppState>, window: Window) -> AppResult<()> {
-    state.caller(&window)?;
+    caller(&state, &window)?;
     state.tasks.clear_completed()
 }
 
@@ -189,7 +199,7 @@ pub async fn tasks_start_file_hash(
     state: State<'_, AppState>,
     window: Window,
 ) -> AppResult<Option<BackgroundTask>> {
-    state.caller(&window)?;
+    caller(&state, &window)?;
     let Some(path) = dialogs::pick_file(&app, &window, "Choose a file to hash", None).await else {
         return Ok(None);
     };

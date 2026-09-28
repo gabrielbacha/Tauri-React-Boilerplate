@@ -25,15 +25,15 @@ Frontend only: `bun run dev` (then open http://localhost:1420).
 
 ## Scripts
 
-| Command              | What it does                           |
-| -------------------- | -------------------------------------- |
-| `bun run dev`        | Vite dev server                        |
-| `bun run build`      | Type-check + production build          |
-| `bun run tauri dev`  | Run the Tauri desktop app in dev       |
-| `bun run tauri build`| Produce platform installers            |
-| `bun run typecheck`  | `tsc --noEmit`                         |
-| `bun run lint`       | ESLint                                 |
-| `bun run format`     | Prettier                               |
+| Command               | What it does                     |
+| --------------------- | -------------------------------- |
+| `bun run dev`         | Vite dev server                  |
+| `bun run build`       | Type-check + production build    |
+| `bun run tauri dev`   | Run the Tauri desktop app in dev |
+| `bun run tauri build` | Produce platform installers      |
+| `bun run typecheck`   | `tsc --noEmit`                   |
+| `bun run lint`        | ESLint                           |
+| `bun run format`      | Prettier                         |
 
 ## Project layout
 
@@ -84,17 +84,17 @@ Before writing any feature code, update these identity fields:
 
 ## Tauri plugins pre-wired
 
-| Plugin              | Rust crate                       | Frontend API                          |
-| ------------------- | -------------------------------- | ------------------------------------- |
-| opener              | `tauri-plugin-opener`            | `@tauri-apps/plugin-opener`           |
-| log                 | `tauri-plugin-log`               | `@tauri-apps/plugin-log`              |
-| dialog              | `tauri-plugin-dialog`            | `@tauri-apps/plugin-dialog`           |
-| notification        | `tauri-plugin-notification`      | `@tauri-apps/plugin-notification`     |
-| clipboard-manager   | `tauri-plugin-clipboard-manager` | `@tauri-apps/plugin-clipboard-manager`|
-| os                  | `tauri-plugin-os`                | `@tauri-apps/plugin-os`               |
-| store               | `tauri-plugin-store`             | `@tauri-apps/plugin-store`            |
-| process (desktop)   | `tauri-plugin-process`           | `@tauri-apps/plugin-process`          |
-| updater (desktop)   | `tauri-plugin-updater`           | `@tauri-apps/plugin-updater`          |
+| Plugin            | Rust crate                       | Frontend API                           |
+| ----------------- | -------------------------------- | -------------------------------------- |
+| opener            | `tauri-plugin-opener`            | `@tauri-apps/plugin-opener`            |
+| log               | `tauri-plugin-log`               | `@tauri-apps/plugin-log`               |
+| dialog            | `tauri-plugin-dialog`            | `@tauri-apps/plugin-dialog`            |
+| notification      | `tauri-plugin-notification`      | `@tauri-apps/plugin-notification`      |
+| clipboard-manager | `tauri-plugin-clipboard-manager` | `@tauri-apps/plugin-clipboard-manager` |
+| os                | `tauri-plugin-os`                | `@tauri-apps/plugin-os`                |
+| store             | `tauri-plugin-store`             | `@tauri-apps/plugin-store`             |
+| process (desktop) | `tauri-plugin-process`           | `@tauri-apps/plugin-process`           |
+| updater (desktop) | `tauri-plugin-updater`           | `@tauri-apps/plugin-updater`           |
 
 Add or remove plugins in `src-tauri/src/lib.rs` and grant permissions in
 `src-tauri/capabilities/default.json`. See live examples on `/settings`.
@@ -102,9 +102,9 @@ Add or remove plugins in `src-tauri/src/lib.rs` and grant permissions in
 ## Calling Rust from the frontend
 
 ```tsx
-import { trackedInvoke } from "@/lib/tauri"
+import { trackedInvoke } from "@/lib/tauri";
 
-const message = await trackedInvoke<string>("greet", { name: "world" })
+const message = await trackedInvoke<string>("greet", { name: "world" });
 ```
 
 Define new commands in `src-tauri/src/lib.rs` and register them in
