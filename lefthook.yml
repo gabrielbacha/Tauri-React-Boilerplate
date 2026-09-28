@@ -10,3 +10,8 @@ pre-commit:
       glob: "*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,json,jsonc,css,md,yml,yaml,html}"
       run: pnpm exec oxfmt --write {staged_files}
       stage_fixed: true
+
+    - name: format staged Rust
+      glob: "src-tauri/**/*.rs"
+      run: cargo fmt --manifest-path src-tauri/Cargo.toml -- {staged_files}
+      stage_fixed: true
