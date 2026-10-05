@@ -7,6 +7,16 @@ import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 
 import {
+  APP_ID,
+  EMAIL,
+  PACKAGE_NAME,
+  REPOSITORY,
+  STORAGE_NAMESPACE,
+  validHttpsUrl,
+  validProductName,
+  validProtocol,
+} from "./identity.mjs";
+import {
   ROOT,
   TEMPLATE_REPOSITORY,
   escapeHtml,
@@ -35,7 +45,6 @@ export const OPTIONS = [
   "support",
   "updater-key",
 ];
-const RESERVED_PROTOCOLS = new Set(["app", "http", "https", "file", "data", "javascript", "tauri", "asset", "ipc"]);
 
 export function parseArguments(commandLine) {
   const args = {};
@@ -67,26 +76,31 @@ export function planSetup(root, answers) {
   const cargo = readFileSync(files.cargoToml, "utf8");
   const html = readFileSync(files.html, "utf8");
 
-  const { productName, appId, variant, repository } = answers;
-  requireMatch(productName, /^.{1,80}$/s, "Product name must be between 1 and 80 characters.");
+  const { appId, variant, repository } = answers;
+  if (!validProductName(answers.productName)) throw new Error("Product name must be between 1 and 80 characters.");
+  const productName = answers.productName.trim();
   const slug = productName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
   const packageName = answers.package ?? (pkg.name === "tauri-gb-boilerplate" ? slug : pkg.name);
-  requireMatch(packageName, /^[a-z][a-z0-9-]*$/, "Package name must be lowercase kebab-case, starting with a letter.");
-  requireMatch(appId, /^[a-zA-Z][\w-]*(\.[a-zA-Z][\w-]*){2,}$/, "Application ID must use reverse-DNS notation.");
+  requireMatch(packageName, PACKAGE_NAME, "Package name must be lowercase kebab-case, starting with a letter.");
+  requireMatch(
+    appId,
+    APP_ID,
+    "Application ID must use reverse-DNS notation with letters, digits, hyphens, and periods.",
+  );
   if (!["clean", "showcase"].includes(variant)) throw new Error("Variant must be clean or showcase.");
   const protocol = answers.protocol ?? (pkg.appConfig.protocol === "tauri-app" ? packageName : pkg.appConfig.protocol);
-  requireMatch(protocol, /^[a-z][a-z0-9-]*$/, "URL protocol must use lowercase letters, numbers, and hyphens.");
-  if (RESERVED_PROTOCOLS.has(protocol)) throw new Error("Choose a non-reserved URL protocol.");
+  if (!validProtocol(protocol))
+    throw new Error("Choose a non-reserved URL protocol using lowercase letters, numbers, and hyphens.");
   const storageNamespace =
     answers["storage-namespace"] ??
     (pkg.appConfig.storageNamespace === "tauri-boilerplate" ? packageName : pkg.appConfig.storageNamespace);
-  requireMatch(storageNamespace, /^[a-z][a-z0-9._-]*$/, "Invalid storage namespace.");
+  requireMatch(storageNamespace, STORAGE_NAMESPACE, "Invalid storage namespace.");
   const configuredRepo = `${pkg.publish.owner}/${pkg.publish.repo}`;
-  if (repository) requireMatch(repository, /^[\w.-]+\/[\w.-]+$/, "Repository must be owner/name.");
   const effectiveRepo = repository || configuredRepo;
+  requireMatch(effectiveRepo, REPOSITORY, "Repository must be owner/name.");
   const rootUrl = `https://github.com/${effectiveRepo}`;
   const changedRepo = effectiveRepo !== configuredRepo;
   const destinations = {
@@ -100,12 +114,10 @@ export function planSetup(root, answers) {
   const description = answers.description ?? pkg.description;
   const author = answers.author ?? pkg.author.name;
   const email = answers.email ?? pkg.author.email;
-  if (!description.trim() || !author.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+  if (!description.trim() || !author.trim() || !EMAIL.test(email))
     throw new Error("Description, author name, and a valid email are required.");
   for (const [key, value] of Object.entries(destinations)) {
-    const url = URL.parse(value);
-    if (url?.protocol !== "https:" || url.username || url.password)
-      throw new Error(`${key} must be an HTTPS URL without credentials.`);
+    if (!validHttpsUrl(value)) throw new Error(`${key} must be an HTTPS URL without credentials.`);
   }
   const [owner, repo] = effectiveRepo.split("/");
 
@@ -203,8 +215,7 @@ async function main() {
       configuredRepo === TEMPLATE_REPOSITORY ? "" : configuredRepo,
     );
     const answers = { ...args, productName, appId, variant, repository };
-    if (args["updater-key"]) answers.pubkey = updaterPublicKey(ROOT, args["updater-key"]);
-    const plan = planSetup(ROOT, answers);
+    let plan = planSetup(ROOT, answers);
     const lines = Object.entries(plan.summary).map(([key, value]) => `  ${key}: ${value}`);
     stdout.write(`\nSetup summary\n${lines.join("\n")}\n\n`);
     if (stdin.isTTY && !process.argv.slice(2).length) {
@@ -214,6 +225,10 @@ async function main() {
         process.exitCode = 1;
         return;
       }
+    }
+    if (args["updater-key"]) {
+      answers.pubkey = updaterPublicKey(ROOT, args["updater-key"]);
+      plan = planSetup(ROOT, answers);
     }
     applySetup(plan);
     const origin = resolve(ROOT, "template-origin.json");

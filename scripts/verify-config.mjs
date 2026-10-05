@@ -1,6 +1,6 @@
 // Check that package.json, tauri.conf.json, Cargo.toml, the capability, and index.html agree.
 //   --strict   also reject template identity (use before a release)
-//   --updates  also require updater and platform signing credentials
+//   --updates  also require updater public and private keys (OS signing remains a warning)
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -37,6 +37,8 @@ export function verifyConfiguration(
   // The updater verifies its own signature, so the feed needs the updater key. OS signing and notarization
   // are still needed for Gatekeeper and SmartScreen to accept the first install.
   if (updates && !env.TAURI_SIGNING_PRIVATE_KEY) errors.push("Update feeds require TAURI_SIGNING_PRIVATE_KEY.");
+  if (updates && !project.tauri.plugins?.updater?.pubkey?.trim())
+    errors.push("No updater public key. Run setup with --updater-key.");
   if (platform === "darwin" && missing([...APPLE_SIGNING, ...APPLE_NOTARIZATION]).length)
     warnings.push("Apple signing or notarization credentials are incomplete; Gatekeeper will block first launch.");
   return { errors, warnings };

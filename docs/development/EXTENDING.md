@@ -9,6 +9,8 @@
 
 Keep logic in a plain function and the `#[tauri::command]` thin: check the caller, validate, call the function, broadcast a change.
 
+The scaffolder refuses Rust keywords and existing feature files or guide directories. Failed creation removes only files it created and restores the module registry. The opt-in template acceptance suite generates a feature in each temporary starter and runs its Rust tests before packaging.
+
 ## Send an event to the interface
 
 Declare a newtype in `src-tauri/src/events.rs`, derive `tauri_specta::Event`, add it to `collect_events!`, and emit it with `.emit(app)` (every window) or `.emit_to(app, label)` (one window). Subscribe in the adapter with `on(events.yourEvent)`.

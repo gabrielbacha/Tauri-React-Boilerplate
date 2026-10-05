@@ -35,7 +35,7 @@ Notifications, camera, and microphone decisions are denied by default. The app a
 
 ## Updates and signing
 
-The updater verifies a minisign signature on every update against the public key in `tauri.conf.json`, so the feed is authenticated even without OS code signing. Only builds signed with `TAURI_SIGNING_PRIVATE_KEY` produce updater archives; other builds ship installers only. Sign and notarize macOS builds and sign Windows builds anyway, so Gatekeeper and SmartScreen accept the first install. Keep the updater private key out of the repository; `pnpm run setup --updater-key` refuses a path inside it.
+The updater verifies a minisign signature on every update against the public key in `tauri.conf.json`, so the feed is authenticated even without OS code signing. Only builds signed with `TAURI_SIGNING_PRIVATE_KEY` produce updater archives; other builds ship installers only and need no updater key. Validate installer releases with `verify-config.mjs --strict`; add `--updates` to require both updater keys. Sign and notarize macOS builds and sign Windows builds anyway, so Gatekeeper and SmartScreen accept the first install. Keep the updater private key out of the repository; `pnpm run setup --updater-key` refuses a path inside it.
 
 ## Reporting
 

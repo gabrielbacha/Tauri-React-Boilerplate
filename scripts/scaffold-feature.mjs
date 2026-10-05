@@ -1,6 +1,6 @@
 // Create an isolated feature: a Rust command with validation and tests, plus the steps to expose it.
 //   pnpm run scaffold:feature -- <kebab-name>
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import fs from "node:fs";
 import { join } from "node:path";
 
 import { ROOT, isMain } from "./project.mjs";
@@ -9,20 +9,54 @@ const RUST_KEYWORDS = new Set([
   "as",
   "async",
   "await",
+  "break",
+  "const",
+  "continue",
   "crate",
   "dyn",
+  "else",
+  "enum",
+  "extern",
+  "false",
   "fn",
+  "for",
+  "if",
   "impl",
+  "in",
+  "let",
   "loop",
   "match",
   "mod",
   "move",
+  "mut",
+  "pub",
   "ref",
+  "return",
   "self",
+  "static",
+  "struct",
   "super",
+  "trait",
+  "true",
   "type",
+  "unsafe",
   "use",
   "where",
+  "while",
+  "abstract",
+  "become",
+  "box",
+  "do",
+  "final",
+  "gen",
+  "macro",
+  "override",
+  "priv",
+  "try",
+  "typeof",
+  "unsized",
+  "virtual",
+  "yield",
 ]);
 
 export function featureNames(name) {
@@ -42,7 +76,7 @@ export function scaffoldFeature(root, name) {
   const rustFile = join(root, "src-tauri/src/features", `${snake}.rs`);
   const guideDirectory = join(root, "src/features", name);
   const modFile = join(root, "src-tauri/src/features/mod.rs");
-  const moduleSource = readFileSync(modFile, "utf8");
+  const moduleSource = fs.readFileSync(modFile, "utf8");
   if (new RegExp(`^pub mod ${snake};$`, "m").test(moduleSource)) throw new Error(`Feature ${name} already exists.`);
 
   const rust = `//! The \`${pascal}\` feature. Follow \`src/features/${name}/README.md\` to expose it to the interface.
@@ -114,16 +148,37 @@ mod tests {
 
 Run \`pnpm run fix\` and \`pnpm run check\`.
 `;
-  mkdirSync(join(root, "src/features"), { recursive: true });
-  mkdirSync(guideDirectory); // Exclusive: never replace or merge an existing feature.
+  fs.mkdirSync(join(root, "src/features"), { recursive: true });
+  let createdDirectory = false;
+  let createdRust = false;
+  let modifiedModule = false;
   try {
-    writeFileSync(rustFile, rust, { flag: "wx" });
-    writeFileSync(join(guideDirectory, "README.md"), guide, { flag: "wx" });
-    writeFileSync(modFile, `${moduleSource.trimEnd()}\n\npub mod ${snake};\n`);
+    fs.mkdirSync(guideDirectory); // Exclusive: never replace or merge an existing feature.
+    createdDirectory = true;
+    const descriptor = fs.openSync(rustFile, "wx");
+    createdRust = true;
+    try {
+      fs.writeFileSync(descriptor, rust);
+    } finally {
+      fs.closeSync(descriptor);
+    }
+    fs.writeFileSync(join(guideDirectory, "README.md"), guide, { flag: "wx" });
+    modifiedModule = true;
+    fs.writeFileSync(modFile, `${moduleSource.trimEnd()}\n\npub mod ${snake};\n`);
   } catch (error) {
-    rmSync(guideDirectory, { recursive: true, force: true });
-    rmSync(rustFile, { force: true });
-    writeFileSync(modFile, moduleSource);
+    const failures = [error];
+    const rollback = (action) => {
+      try {
+        action();
+      } catch (failure) {
+        failures.push(failure);
+      }
+    };
+    if (createdDirectory) rollback(() => fs.rmSync(guideDirectory, { recursive: true, force: true }));
+    if (createdRust) rollback(() => fs.rmSync(rustFile, { force: true }));
+    if (modifiedModule) rollback(() => fs.writeFileSync(modFile, moduleSource));
+    if (failures.length > 1)
+      throw new AggregateError(failures, "Feature creation and rollback failed.", { cause: error });
     throw error;
   }
   return { rustFile, guide: join(guideDirectory, "README.md") };

@@ -22,21 +22,21 @@ Setup writes the product name, package name, application ID, URL protocol, repos
 
 ## Commands
 
-| Command                               | Purpose                                                                     |
-| ------------------------------------- | --------------------------------------------------------------------------- |
-| `pnpm dev`                            | Start the app with interface hot reload                                     |
-| `pnpm run check`                      | Lint, format check, typecheck, unit and script tests, Rust checks, bindings |
-| `pnpm run fix`                        | Apply lint and format fixes (Oxlint, Oxfmt, rustfmt)                        |
-| `pnpm run bindings`                   | Regenerate `src/shared/bindings.ts` from the Rust commands                  |
-| `pnpm run package`                    | Build and verify a debug app without installers                             |
-| `pnpm run smoke`                      | Launch that build with a temporary profile and check it starts cleanly      |
-| `pnpm run make`                       | Build installers for this computer into `dist/release-input/`               |
-| `pnpm run release`                    | Validate, build, and assemble a local release; add `--publish` to upload    |
-| `pnpm run test:e2e`                   | WebdriverIO tests through tauri-driver (Linux, Windows)                     |
-| `pnpm run test:e2e:docker`            | The Linux end-to-end suite in Docker, from any computer                     |
-| `pnpm run test:template`              | Rename both variants in temporary copies, then check, build, and launch     |
-| `pnpm run verify:config`              | Check identity, links, icons, and release prerequisites                     |
-| `pnpm run scaffold:feature -- <name>` | Create a Rust command with tests and wiring steps                           |
+| Command                               | Purpose                                                                                              |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                            | Start the app with interface hot reload                                                              |
+| `pnpm run check`                      | Lint, format check, typecheck, unit and script tests, Rust checks, bindings                          |
+| `pnpm run fix`                        | Apply lint and format fixes (Oxlint, Oxfmt, rustfmt)                                                 |
+| `pnpm run bindings`                   | Regenerate `src/shared/bindings.ts` from the Rust commands                                           |
+| `pnpm run package`                    | Build and verify a debug app without installers                                                      |
+| `pnpm run smoke`                      | Launch that build with a temporary profile and check it starts cleanly                               |
+| `pnpm run make`                       | Build installers for this computer into `dist/release-input/`                                        |
+| `pnpm run release`                    | Validate, build, and assemble a local release; add `--publish` to upload                             |
+| `pnpm run test:e2e`                   | WebdriverIO tests through tauri-driver (Linux, Windows)                                              |
+| `pnpm run test:e2e:docker`            | The Linux end-to-end suite in Docker, from any computer                                              |
+| `pnpm run test:template`              | Rename both variants, validate, test a generated feature, build, launch, and run E2E where supported |
+| `pnpm run verify:config`              | Check identity, links, icons, and release prerequisites                                              |
+| `pnpm run scaffold:feature -- <name>` | Create a Rust command with tests and wiring steps                                                    |
 
 ## Architecture
 
@@ -72,6 +72,8 @@ Pushing a `vX.Y.Z` tag runs the release workflow. The tag must match `package.js
 
 Only builds signed with the updater key include updater archives; others ship installers only. Local releases run the same assembly into `dist/release/`. A `GH_TOKEN` alone never publishes; pass `--publish`.
 
+Installer-only releases need no updater keys. `node scripts/verify-config.mjs --strict` requires a renamed identity, repository, and custom icons. Add `--updates` to require both the updater public key in configuration and `TAURI_SIGNING_PRIVATE_KEY`. OS signing and notarization are separate distribution requirements. If update installation fails after storage is saved, a native error explains how to reopen the app and the process exits with a failure status.
+
 ### Signing environment
 
 | Variable                                                                    | Purpose                                                                                                                    |
@@ -88,6 +90,21 @@ Strict CSP, frozen prototypes, no global Tauri object, deny-by-default app comma
 
 ## Verification
 
-CI runs when started manually in GitHub Actions. It runs `pnpm run check`, configuration checks, a debug build, the smoke test, and the end-to-end suite under Xvfb on Linux, plus build and smoke tests on macOS and Windows. The `template` option also renames and verifies both variants.
+CI runs when started manually in GitHub Actions. It runs `pnpm run check`, configuration checks, a debug build, the smoke test, and the end-to-end suite under Xvfb on Linux, plus build and smoke tests on macOS and Windows. The `template` option adds a separate three-platform matrix that renames and verifies both variants in temporary copies. Each copy also compiles and tests a generated Rust feature. Linux and Windows run the E2E suite; Windows installs the matching Edge WebDriver.
 
-tauri-driver does not support macOS, so macOS interaction stays manual QA; see the [QA checklist](docs/development/QA.md). See [extending the app](docs/development/EXTENDING.md) and [upgrading](docs/development/UPGRADING.md).
+This suite drives tauri-driver directly, which supports Linux and Windows. macOS interaction stays manual QA; see the [QA checklist](docs/development/QA.md). See [extending the app](docs/development/EXTENDING.md) and [upgrading](docs/development/UPGRADING.md).
+
+### Readiness gates
+
+Template readiness means both renamed variants pass configuration validation, unit and script tests, generated-feature compilation, packaging, smoke tests, and the supported E2E tests. Distribution readiness additionally requires your app's identity and icons, native QA on each shipped platform, OS signing/notarization, and a real signed update from one version to another. A debug smoke test proves startup, storage, and bridge connection; it does not prove installer or update behavior.
+
+| Platform             | Automated coverage configured                                            | Evidence available                                         |
+| -------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| macOS                | Checks, debug package, smoke; opt-in acceptance of both renamed variants | Local validation; see the latest CI run for runner results |
+| Windows              | Debug package and smoke; opt-in acceptance and E2E for both variants     | Requires a successful Windows CI run                       |
+| Linux                | Checks, debug package, smoke, E2E; opt-in acceptance of both variants    | Requires a successful Linux CI or Docker run               |
+| Signed distributions | Release artifact validation; native QA and version-to-version update     | Requires credentials and testing for each derived app      |
+
+Keep the latest successful workflow run and completed QA checklist with your release evidence. The presence of a workflow is not evidence that its platform checks have passed.
+
+Maintainer verification on 2026-10-01: macOS arm64 passed local checks, debug packaging and smoke, and acceptance of both renamed variants with generated-feature tests. Windows/Linux CI, native manual QA, and real signed updates remain unverified. The local Docker daemon was unavailable for Linux E2E.

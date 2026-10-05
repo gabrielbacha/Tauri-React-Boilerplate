@@ -45,9 +45,14 @@ for (const variant of ["showcase", "clean"]) {
       ],
       { cwd: directory, env },
     );
+    run("pnpm", ["run", "verify:config"], { cwd: directory, env });
+    // Prove the generator's output compiles and its tests run, even before IPC wiring.
+    run("pnpm", ["run", "scaffold:feature", "--", "acceptance-notes"], { cwd: directory, env });
+    run("pnpm", ["run", "rust:fix"], { cwd: directory, env });
     run("pnpm", ["run", "check"], { cwd: directory, env });
     run("pnpm", ["run", "package"], { cwd: directory, env });
     run(process.execPath, ["scripts/smoke.mjs"], { cwd: directory, env });
+    if (process.platform !== "darwin") run("pnpm", ["run", "test:e2e"], { cwd: directory, env });
     console.log(`Renamed ${variant} starter verified.`);
   } finally {
     rmSync(directory, { recursive: true, force: true });

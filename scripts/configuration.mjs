@@ -2,32 +2,33 @@ import { readFileSync } from "node:fs";
 
 import { z } from "zod";
 
+import {
+  APP_ID,
+  EMAIL,
+  PACKAGE_NAME,
+  STORAGE_NAMESPACE,
+  validHttpsUrl,
+  validProductName,
+  validProtocol,
+} from "./identity.mjs";
 import { TEMPLATE_REPOSITORY, cargoPackageName, escapeHtml, paths, readJson, updaterEndpoint } from "./project.mjs";
 
 export { updaterEndpoint };
 
-const RESERVED_PROTOCOLS = new Set(["app", "http", "https", "file", "data", "javascript", "tauri", "asset", "ipc"]);
-
-const httpsUrl = z.url().refine((value) => {
-  const url = new URL(value);
-  return url.protocol === "https:" && !url.username && !url.password;
-}, "Use an HTTPS URL without credentials.");
+const httpsUrl = z.string().refine(validHttpsUrl, "Use an HTTPS URL without credentials.");
 
 export const configurationSchema = z.object({
-  name: z.string().regex(/^[a-z0-9][a-z0-9._-]*$/),
-  productName: z.string().trim().min(1).max(80),
+  name: z.string().regex(PACKAGE_NAME),
+  productName: z.string().refine(validProductName, "Product name must be between 1 and 80 characters."),
   version: z.string().regex(/^\d+\.\d+\.\d+$/, "Use a plain semantic version such as 1.2.3."),
   description: z.string().trim().min(1),
-  author: z.object({ name: z.string().min(1), email: z.email() }),
+  author: z.object({ name: z.string().trim().min(1), email: z.string().regex(EMAIL) }),
   license: z.string().min(1),
   repository: z.object({ url: httpsUrl }),
   appConfig: z.object({
-    appId: z.string().regex(/^[a-zA-Z][\w-]*(\.[a-zA-Z][\w-]*){2,}$/, "Use reverse-DNS notation."),
-    protocol: z
-      .string()
-      .regex(/^[a-z][a-z0-9-]*$/)
-      .refine((value) => !RESERVED_PROTOCOLS.has(value), "Choose a non-reserved external URL scheme."),
-    storageNamespace: z.string().regex(/^[a-z][a-z0-9._-]*$/),
+    appId: z.string().regex(APP_ID, "Use reverse-DNS notation with letters, digits, hyphens, and periods."),
+    protocol: z.string().refine(validProtocol, "Choose a non-reserved external URL scheme."),
+    storageNamespace: z.string().regex(STORAGE_NAMESPACE),
     variant: z.enum(["showcase", "clean"]),
     destinations: z.object({ repository: httpsUrl, documentation: httpsUrl, license: httpsUrl, support: httpsUrl }),
   }),
@@ -85,7 +86,7 @@ export function consistencyErrors({ pkg, tauri, capability, cargo, html }) {
 }
 
 /** Template identity that must change before a public release. */
-export function releaseConfigurationErrors({ pkg, tauri, cargo }) {
+export function releaseConfigurationErrors({ pkg, cargo }) {
   const errors = [];
   const repository = `https://github.com/${pkg.publish.owner}/${pkg.publish.repo}`;
   if (pkg.repository.url.replace(/\.git$/, "") !== repository || pkg.appConfig.destinations.repository !== repository)
@@ -100,6 +101,5 @@ export function releaseConfigurationErrors({ pkg, tauri, cargo }) {
     `${pkg.publish.owner}/${pkg.publish.repo}` === TEMPLATE_REPOSITORY ||
     Object.values(pkg.appConfig.destinations).some((url) => url.includes(TEMPLATE_REPOSITORY));
   if (template) errors.push("Template identity or destinations remain. Run pnpm run setup before release.");
-  if (!tauri.plugins?.updater?.pubkey) errors.push("No updater public key. Run setup with --updater-key.");
   return errors;
 }

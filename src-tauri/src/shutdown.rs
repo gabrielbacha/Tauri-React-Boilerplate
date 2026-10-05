@@ -11,7 +11,10 @@ pub(crate) trait ShutdownSteps {
     async fn stop(&mut self);
     fn save(&mut self) -> Result<(), String>;
     fn close(&mut self) -> Result<(), String>;
-    fn finish(&mut self, install_update: bool);
+    fn install(&mut self) -> Result<(), String>;
+    fn restart(&mut self);
+    fn exit(&mut self, code: i32);
+    async fn on_install_failure(&mut self, error: String);
     fn recover(&mut self);
     async fn on_failure(&mut self, error: String) -> ShutdownChoice;
 }
@@ -31,12 +34,22 @@ pub(crate) async fn finish_shutdown(update: bool, steps: &mut impl ShutdownSteps
             ShutdownChoice::Quit => {
                 // Work is already stopped. Exit without another write and never install an update.
                 let _ = steps.close();
-                steps.finish(false);
+                steps.exit(0);
                 return true;
             }
         }
     }
-    steps.finish(update);
+    if update {
+        match steps.install() {
+            Ok(()) => steps.restart(),
+            Err(error) => {
+                steps.on_install_failure(error).await;
+                steps.exit(1);
+            }
+        }
+    } else {
+        steps.exit(0);
+    }
     true
 }
 
@@ -49,6 +62,7 @@ mod tests {
         failures: Vec<Result<(), String>>,
         choices: Vec<ShutdownChoice>,
         calls: Vec<String>,
+        install_error: Option<String>,
     }
 
     impl ShutdownSteps for Recorder {
@@ -64,8 +78,18 @@ mod tests {
             self.calls.push("close".into());
             Ok(())
         }
-        fn finish(&mut self, install_update: bool) {
-            self.calls.push(format!("finish:{install_update}"));
+        fn install(&mut self) -> Result<(), String> {
+            self.calls.push("install".into());
+            self.install_error.take().map_or(Ok(()), Err)
+        }
+        fn restart(&mut self) {
+            self.calls.push("restart".into());
+        }
+        fn exit(&mut self, code: i32) {
+            self.calls.push(format!("exit:{code}"));
+        }
+        async fn on_install_failure(&mut self, error: String) {
+            self.calls.push(format!("install-error:{error}"));
         }
         fn recover(&mut self) {
             self.calls.push("recover".into());
@@ -80,7 +104,7 @@ mod tests {
     async fn saves_then_installs_the_update() {
         let mut steps = Recorder::default();
         assert!(finish_shutdown(true, &mut steps).await);
-        assert_eq!(steps.calls, ["stop", "save", "close", "finish:true"]);
+        assert_eq!(steps.calls, ["stop", "save", "close", "install", "restart"]);
     }
 
     #[tokio::test]
@@ -91,7 +115,7 @@ mod tests {
             ..Default::default()
         };
         assert!(finish_shutdown(false, &mut steps).await);
-        assert_eq!(steps.calls, ["stop", "save", "prompt", "save", "close", "finish:false"]);
+        assert_eq!(steps.calls, ["stop", "save", "prompt", "save", "close", "exit:0"]);
     }
 
     #[tokio::test]
@@ -113,6 +137,13 @@ mod tests {
             ..Default::default()
         };
         assert!(finish_shutdown(true, &mut steps).await);
-        assert_eq!(steps.calls, ["stop", "save", "prompt", "close", "finish:false"]);
+        assert_eq!(steps.calls, ["stop", "save", "prompt", "close", "exit:0"]);
+    }
+
+    #[tokio::test]
+    async fn reports_failed_installation_before_exiting_with_failure() {
+        let mut steps = Recorder { install_error: Some("installation failed".into()), ..Default::default() };
+        assert!(finish_shutdown(true, &mut steps).await);
+        assert_eq!(steps.calls, ["stop", "save", "close", "install", "install-error:installation failed", "exit:1"]);
     }
 }

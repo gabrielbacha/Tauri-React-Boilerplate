@@ -42,3 +42,23 @@ test("release builds cover both Mac architectures, Windows, and Linux", () => {
     "x86_64-unknown-linux-gnu",
   ]);
 });
+
+test("every job supplies pnpm's supported major version", () => {
+  for (const name of ["ci.yml", "release.yml"]) {
+    for (const [jobName, job] of Object.entries(workflow(name).jobs)) {
+      const setup = job.steps.find((step) => step.uses === "pnpm/action-setup@v4");
+      assert.equal(setup?.with?.version, 12, `${name}: ${jobName}`);
+    }
+  }
+});
+
+test("template acceptance stays opt in and covers all desktop platforms", () => {
+  const job = workflow("ci.yml").jobs.template;
+  assert.equal(job.if, "inputs.template");
+  assert.deepEqual(job.strategy.matrix.os, ["ubuntu-22.04", "macos-latest", "windows-latest"]);
+  assert.ok(commands(job).has("dbus-run-session -- xvfb-run -a pnpm run test:template"));
+  assert.ok(commands(job).has("pnpm run test:template"));
+  assert.ok(
+    job.steps.some((step) => step.name === "Install matching Edge WebDriver" && step.if === "runner.os == 'Windows'"),
+  );
+});

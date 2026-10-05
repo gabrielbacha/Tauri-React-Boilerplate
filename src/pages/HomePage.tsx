@@ -86,7 +86,7 @@ export default function HomePage() {
       <header className="demo-heading">
         <div>
           <p className="demo-eyebrow">
-            {appInfo?.name ?? "Electron app"} · {appInfo?.version}
+            {appInfo?.name ?? "Tauri app"} · {appInfo?.version}
           </p>
           <h1>Everything, in one workspace.</h1>
           <p>Try the app’s built-in tools. These controls use real files, preferences, and device permissions.</p>

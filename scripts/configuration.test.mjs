@@ -40,12 +40,22 @@ test("detects drift between package.json and the Tauri configuration", () => {
     assert.match(errors, new RegExp(expected));
 });
 
-test("a release needs a renamed identity and an updater key", () => {
+test("a release needs a renamed identity, independently of updater configuration", () => {
   // Exercise a fresh template even when this test runs in a renamed application.
   const template = project();
   template.pkg.productName = "Tauri App";
   template.tauri.plugins.updater.pubkey = "";
   const errors = releaseConfigurationErrors(template).join("\n");
   assert.match(errors, /Template identity/);
-  assert.match(errors, /updater public key/);
+  assert.doesNotMatch(errors, /updater public key/);
+});
+
+test("rejects invalid names and application IDs", () => {
+  const { pkg } = project();
+  for (const productName of ["", "   ", "x".repeat(81)])
+    assert.equal(configurationSchema.safeParse({ ...pkg, productName }).success, false);
+  for (const appId of ["com.example.my_notes", "com.example.app!", "notes", "com..notes"])
+    assert.equal(configurationSchema.safeParse({ ...pkg, appConfig: { ...pkg.appConfig, appId } }).success, false);
+  for (const email of [".invalid@example.com", "two..dots@example.com"])
+    assert.equal(configurationSchema.safeParse({ ...pkg, author: { ...pkg.author, email } }).success, false);
 });

@@ -31,6 +31,8 @@ jobs:
         with:
           workspaces: src-tauri
       - uses: pnpm/action-setup@v4
+        with:
+          version: 12
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
@@ -42,9 +44,6 @@ jobs:
       - run: dbus-run-session -- xvfb-run -a pnpm run smoke
       - run: cargo install tauri-driver --locked
       - run: dbus-run-session -- xvfb-run -a pnpm run test:e2e
-      - name: Rename and verify both starter variants (opt in)
-        if: inputs.template
-        run: dbus-run-session -- xvfb-run -a pnpm run test:template
 
   smoke:
     strategy:
@@ -61,6 +60,8 @@ jobs:
         with:
           workspaces: src-tauri
       - uses: pnpm/action-setup@v4
+        with:
+          version: 12
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
@@ -68,3 +69,53 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run package
       - run: pnpm run smoke
+
+  template:
+    if: inputs.template
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux build and WebDriver dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev \
+            librsvg2-dev webkit2gtk-driver xvfb dbus-x11
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+        working-directory: src-tauri
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: template
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install tauri-driver
+        if: runner.os != 'macOS'
+        run: cargo install tauri-driver --locked
+      - name: Install matching Edge WebDriver
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $edgeVersion = (Get-Item "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe").VersionInfo.ProductVersion
+          $driverDirectory = Join-Path $env:RUNNER_TEMP "edge-driver"
+          $driverArchive = Join-Path $env:RUNNER_TEMP "edge-driver.zip"
+          Invoke-WebRequest "https://msedgedriver.microsoft.com/$edgeVersion/edgedriver_win64.zip" -OutFile $driverArchive
+          Expand-Archive $driverArchive -DestinationPath $driverDirectory
+          $driverDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Verify both renamed variants on Linux
+        if: runner.os == 'Linux'
+        run: dbus-run-session -- xvfb-run -a pnpm run test:template
+      - name: Verify both renamed variants on macOS and Windows
+        if: runner.os != 'Linux'
+        run: pnpm run test:template

@@ -299,7 +299,9 @@ pub fn build<R: Runtime>(
     let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .hidden_title(true)
-        .traffic_light_position(tauri::LogicalPosition::new(16.0, 18.0));
+        // Tao's Y inset adds to the native title-bar height; it is not Electron's top offset.
+        // This centers the controls at 23 logical pixels, matching the 46px shell toolbar.
+        .traffic_light_position(tauri::LogicalPosition::new(16.0, 25.0));
     #[cfg(not(target_os = "macos"))]
     let builder = builder.decorations(false).shadow(true);
     let window = builder.build()?;

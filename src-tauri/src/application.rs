@@ -582,16 +582,32 @@ impl<R: Runtime> ShutdownSteps for AppShutdown<R> {
         self.app.state::<AppState>().database.close().map_err(|error| error.to_string())
     }
 
-    fn finish(&mut self, install_update: bool) {
-        let state = self.app.state::<AppState>();
-        state.quitting.store(true, Ordering::SeqCst);
-        if install_update {
-            match state.updater.install() {
-                Ok(()) => self.app.restart(),
-                Err(error) => log::error!("{error}"),
-            }
-        }
-        self.app.exit(0);
+    fn install(&mut self) -> Result<(), String> {
+        self.app.state::<AppState>().updater.install().map_err(|error| error.to_string())
+    }
+
+    fn restart(&mut self) {
+        self.app.state::<AppState>().quitting.store(true, Ordering::SeqCst);
+        self.app.restart();
+    }
+
+    fn exit(&mut self, code: i32) {
+        self.app.state::<AppState>().quitting.store(true, Ordering::SeqCst);
+        self.app.exit(code);
+    }
+
+    async fn on_install_failure(&mut self, error: String) {
+        log::error!("Update installation failed: {error}");
+        dialogs::ask(
+            &self.app,
+            None,
+            Message {
+                title: "Unable to install update",
+                message: "The update could not be installed. Your saved data is preserved. The app will close; reopen it to continue and try updating again.",
+                kind: MessageDialogKind::Error,
+                buttons: MessageDialogButtons::Ok,
+            },
+        ).await;
     }
 
     fn recover(&mut self) {

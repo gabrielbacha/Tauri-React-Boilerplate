@@ -14,6 +14,7 @@ Automated checks cover logic, the bridge, a clean launch on every platform, and 
 - [ ] Settings → Permissions: allow and deny camera and microphone; Test shows the system prompt once and stops the device.
 - [ ] Restore previous windows: with it on, quit and reopen restores windows and documents; with it off, one window opens.
 - [ ] Check for updates against a published release installs and restarts.
+- [ ] On an update installation failure, a native error explains that saved data is preserved and the app must be reopened; the process exits with a failure status and does not restart automatically.
 
 ## macOS
 
@@ -28,3 +29,7 @@ Automated checks cover logic, the bridge, a clean launch on every platform, and 
 - [ ] Shortcuts work without a native menu (Ctrl+K, Ctrl+N, Ctrl+, …).
 - [ ] Closing the last window runs the quit flow.
 - [ ] Windows: SmartScreen accepts the signed installer. Linux: the AppImage starts on the oldest distribution you support.
+
+## Record distribution evidence
+
+Record the app version, operating system/version, architecture, signing status, workflow run URL, and date beside each completed checklist. For the update test, record both the installed version and the newer version, verify the installed app retains saved documents and preferences after restart, and confirm an invalid update signature is refused. Repeat on every platform you ship. Keep unfinished checks visible; unit tests and debug startup checks do not substitute for a signed installation or update.
