@@ -1,5 +1,6 @@
 // Build installers for this computer's platform into dist/release-input/<platform>-<arch>/.
-//   pnpm run make [-- --mac|--win|--linux] [--target <rust-triple>]
+//   pnpm run make [-- --mac|--win|--linux] [--target <rust-triple>] [--dist]
+// `--dist` uses the slow, size-optimized `dist` Cargo profile; without it, the fast `release` profile.
 // With TAURI_SIGNING_PRIVATE_KEY and an updater public key, updater archives and signatures are included.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -27,10 +28,12 @@ export function makeOptions(
   const target = targetIndex === -1 ? undefined : argv[targetIndex + 1];
   if (targetIndex !== -1 && !target) throw new Error("--target requires a Rust target triple.");
   const signed = Boolean(env.TAURI_SIGNING_PRIVATE_KEY) && Boolean(pubkey.trim());
+  const profile = argv.includes("--dist") ? "dist" : "release";
   const args = ["tauri", "build", "--bundles", host.bundles];
   if (target) args.push("--target", target);
   if (signed) args.push("--config", JSON.stringify({ bundle: { createUpdaterArtifacts: true } }));
-  return { host, target, signed, arch: releaseArch(target ?? arch), args };
+  if (profile !== "release") args.push("--", "--profile", profile);
+  return { host, target, signed, profile, arch: releaseArch(target ?? arch), args };
 }
 
 function main() {
@@ -41,8 +44,13 @@ function main() {
   if (!options.signed)
     console.warn("Unsigned build: installers only. Updater archives need TAURI_SIGNING_PRIVATE_KEY.");
   run("pnpm", options.args);
-  run(process.execPath, ["scripts/verify-package.mjs", ...(options.target ? ["--target", options.target] : [])]);
-  const releaseDirectory = join(targetDirectory(), ...(options.target ? [options.target] : []), "release");
+  run(process.execPath, [
+    "scripts/verify-package.mjs",
+    "--profile",
+    options.profile,
+    ...(options.target ? ["--target", options.target] : []),
+  ]);
+  const releaseDirectory = join(targetDirectory(), ...(options.target ? [options.target] : []), options.profile);
   const slug = cargoPackageName(readFileSync(files.cargoToml, "utf8"));
   const output = join(ROOT, "dist/release-input", `${options.host.name}-${options.arch}`);
   const collected = collectBundles(

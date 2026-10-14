@@ -1,5 +1,5 @@
 // Check a build before it ships: consistent configuration, a binary, and no sources or secrets in the web bundle.
-//   node scripts/verify-package.mjs [--debug] [--target <rust-triple>]
+//   node scripts/verify-package.mjs [--debug | --profile <cargo-profile>] [--target <rust-triple>]
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 
@@ -27,11 +27,10 @@ export function webBundleErrors(distDirectory, { debug }) {
   return errors;
 }
 
-export function verifyPackage(root, { debug = false, target } = {}) {
+export function verifyPackage(root, { debug = false, profile = debug ? "debug" : "release", target } = {}) {
   const project = loadProject(root);
   const errors = [...consistencyErrors(project), ...webBundleErrors(join(root, "dist"), { debug })];
   const name = cargoPackageName(project.cargo);
-  const profile = debug ? "debug" : "release";
   const binary = join(
     targetDirectory(root),
     ...(target ? [target] : []),
@@ -46,10 +45,11 @@ export function verifyPackage(root, { debug = false, target } = {}) {
 
 if (isMain(import.meta.url)) {
   const argv = process.argv.slice(2);
-  const targetIndex = argv.indexOf("--target");
+  const option = (name) => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
   const errors = verifyPackage(ROOT, {
     debug: argv.includes("--debug"),
-    target: targetIndex === -1 ? undefined : argv[targetIndex + 1],
+    profile: option("--profile"),
+    target: option("--target"),
   });
   if (errors.length) {
     console.error(errors.map((error) => `Error: ${error}`).join("\n"));

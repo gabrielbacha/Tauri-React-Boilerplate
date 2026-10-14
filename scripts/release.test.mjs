@@ -101,7 +101,11 @@ test("rejects inconsistent releases before writing", () => {
 test("builds only for the host platform and signs only with a key", () => {
   const options = makeOptions(["--mac"], { platform: "darwin", arch: "arm64", env: {}, pubkey: "" });
   assert.deepEqual(options.args, ["tauri", "build", "--bundles", "app,dmg"]);
+  assert.equal(options.profile, "release");
   assert.equal(options.signed, false);
+  const dist = makeOptions(["--dist"], { platform: "darwin", arch: "arm64", env: {}, pubkey: "" });
+  assert.deepEqual(dist.args, ["tauri", "build", "--bundles", "app,dmg", "--", "--profile", "dist"]);
+  assert.equal(dist.profile, "dist");
   const signed = makeOptions([], {
     platform: "linux",
     arch: "x64",

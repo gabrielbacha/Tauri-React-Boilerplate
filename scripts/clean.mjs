@@ -8,6 +8,7 @@ for (const directory of [
   "coverage",
   "test-results",
   "src-tauri/target/release/bundle",
+  "src-tauri/target/dist/bundle",
   "src-tauri/target/debug/bundle",
 ])
   rmSync(resolve(root, directory), { recursive: true, force: true });

@@ -17,7 +17,7 @@ run(process.execPath, [
 ]);
 run("pnpm", ["run", "clean"]);
 run("pnpm", ["run", "check"]);
-run(process.execPath, ["scripts/make.mjs"]);
+run(process.execPath, ["scripts/make.mjs", "--dist"]);
 
 const input = join(ROOT, "dist/release-input");
 const output = join(ROOT, "dist/release");

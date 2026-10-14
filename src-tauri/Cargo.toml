@@ -72,9 +72,16 @@ must_use_candidate = "allow"
 [profile.dev]
 incremental = true
 
+# Local builds (`pnpm run build`, `pnpm run make`): fast to compile, a few MB larger.
 [profile.release]
-codegen-units = 1
-lto = true
-opt-level = "s"
+incremental = true
 panic = "abort"
 strip = true
+
+# Distribution builds (`pnpm run make -- --dist`, `pnpm run release`, CI): smallest binary, slow to compile.
+[profile.dist]
+inherits = "release"
+codegen-units = 1
+incremental = false
+lto = true
+opt-level = "s"

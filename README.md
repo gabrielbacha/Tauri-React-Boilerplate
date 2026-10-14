@@ -30,7 +30,7 @@ Setup writes the product name, package name, application ID, URL protocol, repos
 | `pnpm run bindings`                   | Regenerate `src/shared/bindings.ts` from the Rust commands                                           |
 | `pnpm run package`                    | Build and verify a debug app without installers                                                      |
 | `pnpm run smoke`                      | Launch that build with a temporary profile and check it starts cleanly                               |
-| `pnpm run make`                       | Build installers for this computer into `dist/release-input/`                                        |
+| `pnpm run make`                       | Build installers for this computer into `dist/release-input/`; add `--dist` for the smallest binary  |
 | `pnpm run release`                    | Validate, build, and assemble a local release; add `--publish` to upload                             |
 | `pnpm run test:e2e`                   | WebdriverIO tests through tauri-driver (Linux, Windows)                                              |
 | `pnpm run test:e2e:docker`            | The Linux end-to-end suite in Docker, from any computer                                              |

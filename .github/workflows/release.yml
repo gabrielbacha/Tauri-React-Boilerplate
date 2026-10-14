@@ -107,7 +107,7 @@ jobs:
         if: env.TAURI_SIGNING_PRIVATE_KEY != ''
         run: node scripts/verify-config.mjs --strict --updates
       - name: Build, verify, and collect installers
-        run: node scripts/make.mjs --target ${{ matrix.target }}
+        run: node scripts/make.mjs --dist --target ${{ matrix.target }}
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}
