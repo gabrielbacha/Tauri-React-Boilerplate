@@ -81,6 +81,16 @@ impl DeepLinkQueue {
         self.items.push_back(intent);
     }
 
+    /// Remove only intents whose delivery was accepted; retain the first failure and all later intents.
+    pub fn deliver(&mut self, mut send: impl FnMut(&DeepLinkIntent) -> bool) {
+        while let Some(intent) = self.items.front() {
+            if !send(intent) {
+                break;
+            }
+            self.items.pop_front();
+        }
+    }
+
     pub fn drain(&mut self) -> Vec<DeepLinkIntent> {
         self.items.drain(..).collect()
     }
@@ -92,6 +102,23 @@ mod tests {
 
     const TASK: &str = "3f2c1b8e-7d6a-4c5b-9e8f-1a2b3c4d5e6f";
 
+    #[test]
+    fn delivery_failure_retains_the_failed_intent_and_preserves_order() {
+        let mut queue = DeepLinkQueue::default();
+        queue.push(DeepLinkIntent::Home);
+        queue.push(DeepLinkIntent::Settings);
+        let mut accepted = Vec::new();
+        queue.deliver(|intent| {
+            if *intent == DeepLinkIntent::Settings {
+                false
+            } else {
+                accepted.push(intent.clone());
+                true
+            }
+        });
+        assert_eq!(accepted, vec![DeepLinkIntent::Home]);
+        assert_eq!(queue.drain(), vec![DeepLinkIntent::Settings]);
+    }
     #[test]
     fn parses_the_supported_routes() {
         assert_eq!(parse("tauri-app://open/home", "tauri-app"), Some(DeepLinkIntent::Home));

@@ -55,13 +55,17 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       received.permissions = true;
       setPermissions(next);
     });
-    void Promise.all([
-      window.desktop.app.getInfo(),
-      initializeInterfacePreferences(),
-      window.desktop.updates.getState(),
-      window.desktop.tasks.list(),
-      window.desktop.permissions.list(),
-    ])
+    void window.desktop
+      .ready()
+      .then(() =>
+        Promise.all([
+          window.desktop.app.getInfo(),
+          initializeInterfacePreferences(),
+          window.desktop.updates.getState(),
+          window.desktop.tasks.list(),
+          window.desktop.permissions.list(),
+        ]),
+      )
       .then(([info, savedPreferences, savedUpdateState, savedTasks, savedPermissions]) => {
         if (!active) return;
         setAppInfo(info);

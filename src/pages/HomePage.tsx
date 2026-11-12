@@ -23,6 +23,7 @@ import { useCommands } from "../context/CommandsContext";
 import { useTasks, useDesktop } from "../context/DesktopContext";
 import { useScratchpad } from "../context/ScratchpadContext";
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { TAURI_TEXT_POLICY, textWithinLimits } from "../shared/text-policy";
 
 export default function HomePage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -48,6 +49,9 @@ export default function HomePage() {
     discardDraft,
     loadMore,
     hasMore,
+    statusLabel,
+    listError,
+    refreshDocuments,
   } = useScratchpad();
   const command = useCommands();
   const shortcutLabel = useShortcutLabel();
@@ -138,24 +142,36 @@ export default function HomePage() {
                 id="document-title"
                 className="demo-document-title w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                 aria-label="Document title"
-                maxLength={255}
                 value={title}
                 disabled={busy}
-                onChange={(event) => setTitle(event.target.value)}
+                onChange={(event) => {
+                  if (textWithinLimits(event.target.value, TAURI_TEXT_POLICY, true)) setTitle(event.target.value);
+                  else toast.error("Title is over the 255-character limit.");
+                }}
               />
             </div>
             <textarea
               disabled={busy}
               className="demo-scratchpad"
               value={draft}
-              maxLength={10_000}
               rows={6}
               aria-label="Scratchpad draft"
               aria-describedby="draft-storage-hint"
               placeholder="Write a document"
-              onChange={(event) => setDraft(event.target.value)}
+              onChange={(event) => {
+                if (textWithinLimits(event.target.value, TAURI_TEXT_POLICY)) setDraft(event.target.value);
+                else toast.error("Text is over the 10,000-character or 40 KB limit.");
+              }}
             />
           </div>
+          {listError && (
+            <div role="alert">
+              <p>{listError}</p>
+              <Button disabled={busy} onClick={() => void refreshDocuments()}>
+                Retry list
+              </Button>
+            </div>
+          )}
           {conflict && (
             <div role="alert">
               This document changed or was deleted in another window. Your edits are kept.
@@ -213,7 +229,7 @@ export default function HomePage() {
             </Button>
           )}
           <p className="demo-note" role="status">
-            {dirty ? "Unsaved changes" : draft ? "Saved to this device" : "New document"}
+            {statusLabel}
           </p>
           <p id="draft-storage-hint" className="demo-note">
             Save keeps this document on this device across restarts. Export writes a separate file.

@@ -1,7 +1,7 @@
 //! Workspace commands shared by the native menu, toolbar, command palette, and shortcut settings.
 //!
-//! Rust owns the registry. It is exported to TypeScript as `COMMAND_REGISTRY`, so labels and default
-//! bindings cannot drift between the menu and the web interface.
+//! The canonical desktop package owns the catalogue. build.rs generates native enum/spec constants;
+//! tauri-specta exports those constants for adapter conformance.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -11,39 +11,7 @@ use specta::Type;
 use crate::app_config::SHOWCASE;
 use crate::error::{AppError, AppResult};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub enum CommandId {
-    NewWindow,
-    Workspace,
-    Settings,
-    Shortcuts,
-    ToggleSidebar,
-    ToggleDetails,
-    CommandPalette,
-    About,
-    Share,
-    ImportText,
-    ExportText,
-    SaveSession,
-    HashFile,
-    ZoomIn,
-    ZoomOut,
-    ZoomReset,
-    CheckUpdates,
-    CopyDiagnostics,
-    OpenLogs,
-    Reload,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
-pub enum CommandGroup {
-    Workspace,
-    Application,
-    Documents,
-    Appearance,
-    Development,
-}
+include!(concat!(env!("OUT_DIR"), "/command_catalogue.rs"));
 
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct CommandSpec {
@@ -56,34 +24,6 @@ pub struct CommandSpec {
 const fn spec(id: CommandId, label: &'static str, group: CommandGroup, binding: Option<&'static str>) -> CommandSpec {
     CommandSpec { id, label, group, binding }
 }
-
-/// Registry order is display order in menus and the command palette.
-pub const COMMANDS: [CommandSpec; 20] = {
-    use CommandGroup::{Appearance, Application, Development, Documents, Workspace};
-    use CommandId as C;
-    [
-        spec(C::NewWindow, "New Window", Workspace, Some("Mod+N")),
-        spec(C::Workspace, "Workspace", Workspace, Some("Mod+1")),
-        spec(C::Settings, "Settings…", Workspace, Some("Mod+,")),
-        spec(C::Shortcuts, "Keyboard shortcuts", Workspace, None),
-        spec(C::ToggleSidebar, "Toggle sidebar", Workspace, None),
-        spec(C::ToggleDetails, "Toggle details", Workspace, Some("Mod+J")),
-        spec(C::CommandPalette, "Search commands…", Workspace, Some("Mod+K")),
-        spec(C::About, "About", Application, None),
-        spec(C::Share, "Share workspace", Application, None),
-        spec(C::ImportText, "Import text…", Documents, Some("Mod+O")),
-        spec(C::ExportText, "Export text…", Documents, Some("Mod+Shift+S")),
-        spec(C::SaveSession, "Save document", Documents, Some("Mod+S")),
-        spec(C::HashFile, "Choose file to hash", Documents, None),
-        spec(C::ZoomIn, "Zoom in", Appearance, Some("Mod+Plus")),
-        spec(C::ZoomOut, "Zoom out", Appearance, Some("Mod+-")),
-        spec(C::ZoomReset, "Actual size", Appearance, Some("Mod+0")),
-        spec(C::CheckUpdates, "Check for updates", Application, None),
-        spec(C::CopyDiagnostics, "Copy diagnostics", Application, None),
-        spec(C::OpenLogs, "Open logs", Application, None),
-        spec(C::Reload, "Reload…", Development, Some("Mod+R")),
-    ]
-};
 
 pub fn spec_of(id: CommandId) -> &'static CommandSpec {
     COMMANDS.iter().find(|spec| spec.id == id).unwrap_or(&COMMANDS[0])

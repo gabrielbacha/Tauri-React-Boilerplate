@@ -1,6 +1,7 @@
 //! Database backup and restore. Destinations come from trusted code or a native save dialog.
 
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -20,7 +21,7 @@ pub fn validate(file: &Path) -> AppResult<()> {
     let database =
         Connection::open_with_flags(file, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
     let version: u32 = database.pragma_query_value(None, "user_version", |row| row.get(0))?;
-    if version < 1 || version > DATABASE_VERSION {
+    if !(1..=DATABASE_VERSION).contains(&version) {
         return Err(AppError::invalid("Unsupported backup schema version."));
     }
     let check: String = database.pragma_query_value(None, "quick_check", |row| row.get(0))?;
@@ -52,55 +53,120 @@ pub fn backup(source: &Connection, destination: &Path) -> AppResult<()> {
     Ok(())
 }
 
-/// Replace `target` with `backup`. Offline only: every connection to `target` must be closed.
-///
-/// The current database files move into an archive directory, which is returned, and move back on failure.
-pub fn restore(backup_file: &Path, target: &Path) -> AppResult<PathBuf> {
-    let resolved_backup = fs::canonicalize(backup_file).or_app(AppError::not_found("Backup file not found."))?;
-    if fs::canonicalize(target).is_ok_and(|resolved| resolved == resolved_backup) {
-        return Err(AppError::invalid("Choose a separate backup file."));
-    }
-    validate(backup_file)?;
-    let directory = target.parent().ok_or_else(|| AppError::invalid("Invalid database location."))?;
-    let staging = tempfile::Builder::new()
-        .prefix(".database-restore-")
-        .tempdir_in(directory)
-        .or_app(AppError::storage("Unable to prepare the restore."))?;
-    let snapshot = staging.path().join("app.sqlite");
-    {
-        // Materialize a complete snapshot, including committed WAL data in the source.
-        let source = Connection::open_with_flags(backup_file, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-        let mut copy = Connection::open(&snapshot)?;
-        rusqlite::backup::Backup::new(&source, &mut copy)?.run_to_completion(256, Duration::ZERO, None)?;
-    }
-    validate(&snapshot)?;
-    let file_name = target.file_name().and_then(|name| name.to_str()).unwrap_or("app.sqlite");
-    let archive = tempfile::Builder::new()
-        .prefix(&format!("{file_name}.before-restore-"))
-        .tempdir_in(directory)
-        .or_app(AppError::storage("Unable to archive the current database."))?
-        .keep();
-    let mut moved = Vec::new();
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RecoveryState {
+    pub archive: PathBuf,
+    pub moved: Vec<String>,
+    pub unresolved: Vec<String>,
+}
+#[derive(Debug, thiserror::Error)]
+pub enum RestoreError {
+    #[error(transparent)]
+    Failure(#[from] AppError),
+    #[error("Database recovery is required; retain the archived original files.")]
+    RecoveryRequired { cause: AppError, recovery: RecoveryState },
+}
+fn restore_marker(target: &Path) -> PathBuf {
+    PathBuf::from(format!("{}.restore-in-progress.json", target.display()))
+}
+/// Offline only. The archive and marker are trusted recovery metadata; never expose their paths through IPC.
+pub fn restore(backup_file: &Path, target: &Path) -> Result<PathBuf, RestoreError> {
+    restore_with(backup_file, target, |source, destination| fs::rename(source, destination))
+}
+fn restore_with(
+    backup_file: &Path,
+    target: &Path,
+    mut move_file: impl FnMut(&Path, &Path) -> std::io::Result<()>,
+) -> Result<PathBuf, RestoreError> {
+    let prepared = (|| -> AppResult<_> {
+        let resolved = fs::canonicalize(backup_file).or_app(AppError::not_found("Backup file not found."))?;
+        if fs::canonicalize(target).is_ok_and(|path| path == resolved) {
+            return Err(AppError::invalid("Choose a separate backup file."));
+        }
+        validate(backup_file)?;
+        let directory = target.parent().ok_or_else(|| AppError::invalid("Invalid database location."))?;
+        let staging = tempfile::Builder::new()
+            .prefix(".database-restore-")
+            .tempdir_in(directory)
+            .or_app(AppError::storage("Unable to prepare the restore."))?;
+        let snapshot = staging.path().join("app.sqlite");
+        {
+            let source = Connection::open_with_flags(backup_file, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+            let mut copy = Connection::open(&snapshot)?;
+            rusqlite::backup::Backup::new(&source, &mut copy)?.run_to_completion(256, Duration::ZERO, None)?;
+        }
+        validate(&snapshot)?;
+        let archive = tempfile::Builder::new()
+            .prefix(".database-before-restore-")
+            .tempdir_in(directory)
+            .or_app(AppError::storage("Unable to archive the current database."))?
+            .keep();
+        Ok((staging, snapshot, archive))
+    })()?;
+    let (_staging, snapshot, archive) = prepared;
+    let marker = restore_marker(target);
+    let mut recovery = RecoveryState { archive, moved: Vec::new(), unresolved: Vec::new() };
+    // Exclusive marker prevents a concurrent restore from removing another operation's recovery fence.
+    let mut receipt = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&marker)
+        .or_app(AppError::storage("A restore is already pending or storage is unavailable."))?;
+    receipt
+        .write_all(&serde_json::to_vec(&recovery).map_err(|error| AppError::internal(error.to_string()))?)
+        .or_app(AppError::storage("Unable to record restore intent."))?;
+    receipt.sync_all().or_app(AppError::storage("Unable to save restore intent."))?;
+    drop(receipt);
+    let file_name = target.file_name().ok_or_else(|| AppError::invalid("Invalid database filename."))?;
     let result = (|| -> std::io::Result<()> {
         for suffix in ["", "-wal", "-shm"] {
             let file = PathBuf::from(format!("{}{suffix}", target.display()));
-            if !file.exists() {
-                continue;
+            match fs::metadata(&file) {
+                Ok(_) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(error),
             }
-            fs::rename(&file, archive.join(format!("{file_name}{suffix}")))?;
-            moved.push(suffix);
+            let mut name = file_name.to_os_string();
+            name.push(suffix);
+            move_file(&file, &recovery.archive.join(name))?;
+            recovery.moved.push(suffix.into());
+            crate::storage::atomic::write(&marker, &serde_json::to_vec(&recovery).map_err(std::io::Error::other)?)?;
         }
-        fs::rename(&snapshot, target)
+        move_file(&snapshot, target)
     })();
-    if let Err(error) = result {
-        for suffix in moved {
-            let _ = fs::rename(archive.join(format!("{file_name}{suffix}")), format!("{}{suffix}", target.display()));
+    let result = result
+        .map_err(|error| {
+            log::error!("Database restore failed: {error}");
+            AppError::storage("Unable to publish the restored database.")
+        })
+        .and_then(|()| validate(target));
+    if let Err(cause) = result {
+        for suffix in &recovery.moved {
+            let mut name = file_name.to_os_string();
+            name.push(suffix);
+            if let Err(error) =
+                move_file(&recovery.archive.join(name), &PathBuf::from(format!("{}{suffix}", target.display())))
+            {
+                log::error!("Database rollback failed: {error}");
+                recovery.unresolved.push(suffix.clone());
+            }
         }
-        let _ = fs::remove_dir(&archive);
-        log::error!("Database restore failed: {error}");
-        return Err(AppError::storage("Unable to restore the backup. The current database is unchanged."));
+        if recovery.unresolved.is_empty() && recovery.moved.iter().any(String::is_empty) && validate(target).is_err() {
+            recovery.unresolved.push("validation".into());
+        }
+        if !recovery.unresolved.is_empty() {
+            if let Ok(bytes) = serde_json::to_vec(&recovery) {
+                let _ = crate::storage::atomic::write(&marker, &bytes);
+            }
+            return Err(RestoreError::RecoveryRequired { cause, recovery });
+        }
+        fs::remove_file(&marker)
+            .or_app(AppError::storage("Original files restored; restore marker needs recovery."))?;
+        let _ = fs::remove_dir(&recovery.archive);
+        return Err(RestoreError::Failure(cause));
     }
-    Ok(archive)
+    fs::remove_file(&marker).or_app(AppError::storage("Database restored; restore marker needs recovery."))?;
+    Ok(recovery.archive)
 }
 
 #[cfg(test)]
@@ -156,5 +222,77 @@ mod tests {
         seeded(&target, "Keep").close().unwrap();
         assert!(restore(&bogus, &target).is_err());
         assert!(restore(&target, &target).is_err());
+    }
+}
+
+#[cfg(test)]
+mod failure_tests {
+    use super::*;
+    use crate::database::{Database, DocumentInput};
+    fn fixture() -> (tempfile::TempDir, PathBuf, PathBuf, Vec<u8>) {
+        let directory = tempfile::tempdir().unwrap();
+        let target = directory.path().join("app.sqlite");
+        let backup_file = directory.path().join("backup.sqlite");
+        let database = Database::open(&target).unwrap();
+        database.create_document(DocumentInput { title: "original".into(), text: "keep".into() }).unwrap();
+        database.backup_to(&backup_file).unwrap();
+        database.close().unwrap();
+        for suffix in ["-wal", "-shm"] {
+            fs::write(format!("{}{suffix}", target.display()), []).unwrap();
+        }
+        let bytes = fs::read(&target).unwrap();
+        (directory, target, backup_file, bytes)
+    }
+    #[test]
+    fn every_forward_failure_restores_the_original_file_set() {
+        for fail in 0..4 {
+            let (_directory, target, backup_file, bytes) = fixture();
+            let mut calls = 0;
+            let result = restore_with(&backup_file, &target, |source, destination| {
+                let current = calls;
+                calls += 1;
+                if current == fail {
+                    Err(std::io::Error::other("forward failure"))
+                } else {
+                    fs::rename(source, destination)
+                }
+            });
+            assert!(result.is_err());
+            assert_eq!(fs::read(&target).unwrap(), bytes);
+            assert!(!restore_marker(&target).exists());
+        }
+    }
+    #[test]
+    fn every_failed_rollback_is_reported_and_remaining_restores_are_attempted() {
+        for fail in 0..3 {
+            let (_directory, target, backup_file, _bytes) = fixture();
+            let mut calls = 0;
+            let result = restore_with(&backup_file, &target, |source, destination| {
+                let current = calls;
+                calls += 1;
+                if current == 3 || current == 4 + fail {
+                    Err(std::io::Error::other("injected move failure"))
+                } else {
+                    fs::rename(source, destination)
+                }
+            });
+            let Err(RestoreError::RecoveryRequired { recovery, .. }) = result else {
+                panic!("explicit recovery state required");
+            };
+            assert_eq!(calls, 7);
+            assert_eq!(recovery.unresolved.len(), 1);
+            assert!(recovery.archive.exists());
+            assert!(restore_marker(&target).exists());
+            assert!(Database::open(&target).is_err());
+        }
+    }
+    #[test]
+    fn an_existing_operation_marker_and_original_bytes_are_never_replaced() {
+        let (_directory, target, backup_file, bytes) = fixture();
+        let marker = restore_marker(&target);
+        fs::write(&marker, b"another operation").unwrap();
+        assert!(restore(&backup_file, &target).is_err());
+        assert_eq!(fs::read(&marker).unwrap(), b"another operation");
+        assert_eq!(fs::read(&target).unwrap(), bytes);
     }
 }

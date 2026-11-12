@@ -46,9 +46,8 @@ function Root() {
     });
     let active = true;
     let removeNavigation: (() => void) | undefined;
-    void window.desktop.window
-      .getSession()
-      .then(async (saved) => {
+    void Promise.all([window.desktop.ready(), window.desktop.window.getSession()])
+      .then(async ([, saved]) => {
         if (!active) return;
         if (saved.route !== router.state.location.pathname) await router.navigate({ to: saved.route });
         if (!active) return;

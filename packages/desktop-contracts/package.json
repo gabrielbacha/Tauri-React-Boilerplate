@@ -1,0 +1,24 @@
+{
+  "name": "@gabrielbacha/desktop-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./documents": "./src/documents.ts",
+    "./saved-document": "./src/useSavedDocument.ts",
+    "./overlays": "./src/overlays.ts",
+    "./composition": "./src/composition.ts",
+    "./commands": "./src/commands.ts",
+    "./preferences": "./src/preferences.ts",
+    "./platform": "./src/platform.ts",
+    "./interface-options": "./src/interface-options.ts",
+    "./subscription": "./src/subscription.ts",
+    "./text-policy": "./src/text-policy.ts",
+    "./interruptions": "./src/interruptions.ts",
+    "./ui/*": "./src/ui/*"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "zod": "^4"
+  }
+}

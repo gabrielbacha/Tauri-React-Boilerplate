@@ -80,7 +80,7 @@ export default function AdvancedSettings(): ReactElement {
               disabled={busy}
               onClick={(event) => {
                 confirmationTrigger.current = event.currentTarget;
-                setConfirmation("reload");
+                void window.desktop.diagnostics.reload();
               }}
             >
               Reload renderer
@@ -119,7 +119,7 @@ export default function AdvancedSettings(): ReactElement {
             <DialogTitle>{confirmation === "reload" ? "Reload this workspace?" : "Reset preferences?"}</DialogTitle>
             <DialogDescription>
               {confirmation === "reload"
-                ? "The renderer will restart. Saved documents and background tasks remain available."
+                ? "Unsaved edits will be discarded. Wait for a pending save to finish, or cancel the reload."
                 : "Appearance, sidebar, shortcut, and update settings will return to their defaults."}
             </DialogDescription>
           </DialogHeader>

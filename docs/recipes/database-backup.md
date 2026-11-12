@@ -31,6 +31,9 @@ pub async fn database_backup(app: AppHandle, state: State<'_, AppState>, window:
 
 1. The backup is validated, then copied into a complete snapshot (including its WAL data).
 2. The current `app.sqlite`, `-wal`, and `-shm` files move into an archive folder beside them, which is returned.
-3. The snapshot moves into place. If any step fails, the moved files return and the current database is unchanged.
+3. An exclusive, flushed restore marker records the archive and completed moves before publication.
+4. The snapshot moves into place. On failure, every rollback move is attempted. `RestoreError::RecoveryRequired` reports the retained archive and unresolved suffixes to trusted Rust recovery code.
+
+A recovery marker prevents `Database::open`. Keep it and the archive until the complete original or replacement set has been restored and validated. Do not remove the marker just to open a split file set. A failed competing restore cannot remove another operation's marker. This helper is offline and is not exposed to the webview.
 
 Run a restore at startup, before `Database::open`, or after `Database::close` followed by a restart. A backup from a newer schema version is refused.

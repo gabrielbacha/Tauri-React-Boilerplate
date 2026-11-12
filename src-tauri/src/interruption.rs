@@ -15,6 +15,7 @@ pub enum InterruptionKind {
     Quit,
     InstallUpdate,
     CloseWindow,
+    Reload,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -85,7 +86,7 @@ impl InterruptionCoordinator {
         if self.pending.is_some() {
             return RequestOutcome::Deliver(self.deliver_pending(available, current));
         }
-        if !self.has_work(active_tasks) {
+        if kind != InterruptionKind::Reload && !self.has_work(active_tasks) {
             return RequestOutcome::Proceed(proceed);
         }
         let request = InterruptionRequest {
@@ -161,6 +162,16 @@ mod tests {
         }
     }
 
+    #[test]
+    fn reload_always_requires_confirmation_even_before_a_dirty_acknowledgement() {
+        let mut coordinator = InterruptionCoordinator::default();
+        let (ran, proceed) = flag();
+        assert!(matches!(
+            coordinator.request(InterruptionKind::Reload, 0, proceed, |_| true, Some("test".into())),
+            RequestOutcome::Deliver(_)
+        ));
+        assert!(!ran.load(Ordering::SeqCst));
+    }
     #[test]
     fn proceeds_immediately_without_work() {
         let mut coordinator = InterruptionCoordinator::default();

@@ -10,12 +10,21 @@
     "strict": true,
     "skipLibCheck": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@desktop/*": ["./src/*"],
+      "@contracts/*": ["./packages/desktop-contracts/src/*"]
     },
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "types": ["node", "vite/client"],
     "noEmit": true
   },
-  "include": ["src/**/*", "vite.config.ts", "vitest.config.ts", "package.json", "tests/**/*.ts"]
+  "include": [
+    "src/**/*",
+    "packages/desktop-contracts/src/**/*",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "package.json",
+    "tests/**/*.ts"
+  ]
 }

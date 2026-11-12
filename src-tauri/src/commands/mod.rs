@@ -390,9 +390,10 @@ pub fn diagnostics_open_logs(app: AppHandle, state: State<'_, AppState>, window:
 
 #[tauri::command]
 #[specta::specta]
-pub fn diagnostics_reload(state: State<'_, AppState>, window: Window) -> AppResult<()> {
+pub fn diagnostics_reload(app: AppHandle, state: State<'_, AppState>, window: Window) -> AppResult<()> {
     state.caller(&window)?;
-    window.reload().map_err(AppError::from)
+    application::request_reload(&app, window.label());
+    Ok(())
 }
 
 #[tauri::command]

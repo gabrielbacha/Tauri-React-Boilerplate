@@ -13,20 +13,23 @@ use uuid::Uuid;
 use crate::app_config::now_iso;
 use crate::error::{AppError, AppResult};
 
-pub const DATABASE_VERSION: u32 = 1;
+pub const DATABASE_VERSION: u32 = 2;
 pub const MAX_TEXT_LENGTH: usize = 10_000;
 pub const MAX_TEXT_BYTES: usize = 40_000;
 const PAGE_SIZE: u32 = 100;
 pub const MAX_WINDOWS: usize = 20;
 
-const MIGRATIONS: [&str; 1] = ["
+const MIGRATIONS: [&str; 2] = [
+    "
     CREATE TABLE documents (
       id TEXT PRIMARY KEY, title TEXT NOT NULL, text TEXT NOT NULL, revision INTEGER NOT NULL,
       createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL
     );
     CREATE TABLE jobs (id TEXT PRIMARY KEY, data TEXT NOT NULL);
     CREATE TABLE windows (id TEXT PRIMARY KEY, data TEXT NOT NULL);
-"];
+",
+    "CREATE INDEX documents_updated_id ON documents(updatedAt DESC, id);",
+];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -64,7 +67,10 @@ pub enum DocumentWriteResult {
 
 /// Text limits shared with the import and export commands.
 pub fn validate_text(text: &str) -> AppResult<()> {
-    if text.chars().count() > MAX_TEXT_LENGTH || text.len() > MAX_TEXT_BYTES {
+    validate_text_with_limits(text, MAX_TEXT_LENGTH, MAX_TEXT_BYTES)
+}
+fn validate_text_with_limits(text: &str, max_units: usize, max_bytes: usize) -> AppResult<()> {
+    if text.chars().count() > max_units || text.len() > max_bytes {
         return Err(AppError::invalid("Text must be at most 10,000 characters and 40 KB."));
     }
     Ok(())
@@ -87,6 +93,9 @@ pub struct Database {
 
 impl Database {
     pub fn open(path: &Path) -> AppResult<Self> {
+        if Path::new(&format!("{}.restore-in-progress.json", path.display())).exists() {
+            return Err(AppError::storage("Database recovery is required before this profile can open."));
+        }
         let mut connection = Connection::open(path)?;
         migrate(&mut connection)?;
         Ok(Self { connection: Mutex::new(Some(connection)) })
@@ -99,11 +108,15 @@ impl Database {
     }
 
     pub fn list_documents(&self, offset: u32) -> AppResult<Vec<DocumentSummary>> {
+        self.list_document_range(offset, PAGE_SIZE)
+    }
+
+    pub fn list_document_range(&self, offset: u32, limit: u32) -> AppResult<Vec<DocumentSummary>> {
         self.with(|db| {
             db.prepare(
                 "SELECT id,title,revision,createdAt,updatedAt FROM documents ORDER BY updatedAt DESC, id LIMIT ?1 OFFSET ?2",
             )?
-            .query_map(params![PAGE_SIZE, offset], |row| {
+            .query_map(params![limit, offset], |row| {
                 Ok(DocumentSummary {
                     id: parse_id(row.get(0)?)?,
                     title: row.get(1)?,
@@ -166,12 +179,43 @@ impl Database {
     }
 
     pub fn load_jobs(&self) -> AppResult<Vec<String>> {
-        self.load_rows("SELECT data FROM jobs ORDER BY rowid LIMIT 100")
+        self.with(|db| {
+            let count: i64 = db.query_row("SELECT COUNT(*) FROM jobs", [], |row| row.get(0))?;
+            if count > 10_000 {
+                return Err(rusqlite::Error::InvalidParameterName("Job history needs compatibility recovery".into()));
+            }
+            db.prepare("SELECT data FROM jobs ORDER BY rowid")?.query_map([], |row| row.get(0))?.collect()
+        })
     }
 
     /// Replace every job row in one transaction.
     pub fn save_jobs(&self, jobs: &[(Uuid, String)]) -> AppResult<()> {
-        self.replace_rows("jobs", jobs)
+        self.with(|db| {
+            let transaction = db.transaction()?;
+            let previous: Vec<(String, String)> = transaction
+                .prepare("SELECT id,data FROM jobs")?
+                .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .collect::<Result<_, _>>()?;
+            for (id, data) in &previous {
+                if crate::tasks::supported_record(data) && !jobs.iter().any(|(current, _)| current.to_string() == *id) {
+                    transaction.execute("DELETE FROM jobs WHERE id=?1", [id])?;
+                }
+            }
+            for (id, data) in jobs {
+                if previous.iter().any(|(old_id, old_data)| {
+                    old_id == &id.to_string() && !crate::tasks::supported_record(old_data) && old_data != data
+                }) {
+                    return Err(rusqlite::Error::InvalidParameterName(
+                        "Unsupported job requires explicit recovery".into(),
+                    ));
+                }
+                transaction.execute(
+                    "INSERT INTO jobs(id,data) VALUES (?1,?2) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+                    params![id.to_string(), data],
+                )?;
+            }
+            transaction.commit()
+        })
     }
 
     pub fn load_windows(&self) -> AppResult<Vec<String>> {
@@ -276,6 +320,57 @@ mod tests {
     }
 
     #[test]
+    fn indexed_loaded_range_uses_no_temporary_sort_at_representative_size() {
+        let (_directory, database) = open();
+        database
+            .with(|connection| {
+                let transaction = connection.transaction()?;
+                {
+                    let mut insert = transaction
+                        .prepare("INSERT INTO documents VALUES (?1,'fixture','',1,'2026-11-11T00:00:00Z',?2)")?;
+                    for index in 0..10_000_u128 {
+                        insert.execute(params![
+                            Uuid::from_u128(index + 1).to_string(),
+                            format!("2026-11-11T00:{:02}:{:02}Z", index / 60 % 60, index % 60)
+                        ])?;
+                    }
+                }
+                transaction.commit()
+            })
+            .unwrap();
+        let plan: Vec<String> = database.with(|connection| connection.prepare("EXPLAIN QUERY PLAN SELECT id,title,revision,createdAt,updatedAt FROM documents ORDER BY updatedAt DESC,id LIMIT 200")?.query_map([],|row|row.get(3))?.collect()).unwrap();
+        assert!(plan.iter().any(|line| line.contains("documents_updated_id")));
+        assert!(!plan.iter().any(|line| line.contains("TEMP B-TREE")));
+        let started = std::time::Instant::now();
+        for _ in 0..100 {
+            assert_eq!(database.list_document_range(0, 200).unwrap().len(), 200);
+        }
+        eprintln!("Indexed 10,000-row fixture: 100 x 200-row reads {} microseconds", started.elapsed().as_micros());
+    }
+
+    #[test]
+    fn canonical_unicode_vectors_match_the_native_scalar_and_byte_policy() {
+        let vectors: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../../../packages/desktop-contracts/text-vectors.json")).unwrap();
+        for vector in vectors {
+            let text =
+                vector["text"].as_str().unwrap().repeat(usize::try_from(vector["repeat"].as_u64().unwrap()).unwrap());
+            let title = vector["title"].as_bool().unwrap_or(false);
+            let valid = if title {
+                DocumentInput { title: text.clone(), text: String::new() }.validated().is_ok()
+            } else {
+                validate_text_with_limits(
+                    &text,
+                    MAX_TEXT_LENGTH,
+                    vector["maxBytes"].as_u64().map_or(MAX_TEXT_BYTES, |bytes| usize::try_from(bytes).unwrap()),
+                )
+                .is_ok()
+            };
+            assert_eq!(valid, vector["scalar"].as_bool().unwrap(), "{}", vector["name"]);
+        }
+    }
+
+    #[test]
     fn applies_pragmas_and_migrations() {
         let (directory, database) = open();
         database.close().unwrap();
@@ -328,12 +423,12 @@ mod tests {
     }
 
     #[test]
-    fn replaces_job_and_window_rows() {
+    fn preserves_unsupported_job_rows_and_bounds_window_rows() {
         let (_directory, database) = open();
         let id = Uuid::new_v4();
         database.save_jobs(&[(id, "{\"a\":1}".into())]).unwrap();
         database.save_jobs(&[(Uuid::new_v4(), "{\"b\":2}".into())]).unwrap();
-        assert_eq!(database.load_jobs().unwrap(), ["{\"b\":2}"]);
+        assert_eq!(database.load_jobs().unwrap(), ["{\"a\":1}", "{\"b\":2}"]);
         let too_many: Vec<_> = (0..21).map(|_| (Uuid::new_v4(), "{}".to_owned())).collect();
         assert!(database.save_windows(&too_many).is_err());
     }

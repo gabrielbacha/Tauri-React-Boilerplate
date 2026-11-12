@@ -1,3 +1,4 @@
+import { boundedDebugValue, debugText } from "./debug-value";
 export const DEBUG_EVENT_NAME = "app:debug";
 
 type SerializedError = {
@@ -47,36 +48,20 @@ export type DebugEvent = ExternalLinkDebugEvent | InvokeDebugEvent | RuntimeEven
 export function serializeError(error: unknown): SerializedError {
   if (error instanceof Error) {
     return {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
+      name: debugText(error.name),
+      message: debugText(error.message),
+      stack: debugText(error.stack),
     };
   }
 
   return {
     name: "Error",
-    message: typeof error === "string" ? error : JSON.stringify(error),
+    message: debugText(error),
   };
 }
 
 export function serializeDebugValue(value: unknown): unknown {
-  if (value === null || value === undefined || typeof value === "boolean" || typeof value === "number") {
-    return value ?? null;
-  }
-
-  if (typeof value === "string") {
-    return value.length > 500 ? `${value.slice(0, 500)}…` : value;
-  }
-
-  if (value instanceof Error) {
-    return serializeError(value);
-  }
-
-  try {
-    return JSON.parse(JSON.stringify(value));
-  } catch {
-    return String(value);
-  }
+  return boundedDebugValue(value);
 }
 
 export function emitDebugEvent(detail: DebugEvent) {
@@ -84,5 +69,19 @@ export function emitDebugEvent(detail: DebugEvent) {
     return;
   }
 
-  window.dispatchEvent(new CustomEvent<DebugEvent>(DEBUG_EVENT_NAME, { detail }));
+  const safe = { ...detail };
+  if (safe.kind === "invoke") {
+    safe.args = boundedDebugValue(safe.args);
+    safe.result = boundedDebugValue(safe.result);
+    if (safe.error)
+      safe.error = {
+        name: debugText(safe.error.name),
+        message: debugText(safe.error.message),
+        stack: debugText(safe.error.stack),
+      };
+  }
+  if (safe.kind === "runtime-event") safe.payload = boundedDebugValue(safe.payload);
+  if (safe.kind === "log") safe.message = debugText(safe.message);
+  if (safe.kind === "external-link") safe.href = debugText(safe.href);
+  window.dispatchEvent(new CustomEvent<DebugEvent>(DEBUG_EVENT_NAME, { detail: safe }));
 }

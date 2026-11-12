@@ -41,6 +41,7 @@ pub struct DiagnosticsSnapshot {
     pub update_status: String,
     pub protocol_registered: bool,
     pub webview_health: WebviewHealth,
+    pub placement_error: Option<String>,
 }
 
 pub fn platform() -> &'static str {
@@ -88,6 +89,7 @@ pub fn protocol_registered<R: Runtime>(app: &AppHandle<R>) -> bool {
 }
 
 pub fn snapshot<R: Runtime>(app: &AppHandle<R>, update_status: &str, loaded: bool) -> DiagnosticsSnapshot {
+    use tauri::Manager;
     DiagnosticsSnapshot {
         app: app_info(app),
         versions: RuntimeVersions {
@@ -95,6 +97,7 @@ pub fn snapshot<R: Runtime>(app: &AppHandle<R>, update_status: &str, loaded: boo
             webview: tauri::webview_version().unwrap_or_else(|_| "unknown".to_owned()),
         },
         update_status: update_status.to_owned(),
+        placement_error: app.state::<crate::state::AppState>().placement.last_error().map(|error| error.to_string()),
         protocol_registered: protocol_registered(app),
         webview_health: if loaded { WebviewHealth::Healthy } else { WebviewHealth::Loading },
     }

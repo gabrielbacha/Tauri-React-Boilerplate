@@ -43,7 +43,7 @@ export const commands = {
 	diagnosticsOpenLogs: () => __TAURI_INVOKE<null>("diagnostics_open_logs"),
 	diagnosticsReload: () => __TAURI_INVOKE<null>("diagnostics_reload"),
 	diagnosticsResetPreferences: () => __TAURI_INVOKE<AppPreferences>("diagnostics_reset_preferences"),
-	documentsList: (offset: number | null) => __TAURI_INVOKE<DocumentSummary[]>("documents_list", { offset }),
+	documentsList: (offset: number | null, limit: number | null) => __TAURI_INVOKE<DocumentSummary[]>("documents_list", { offset, limit }),
 	documentsGet: (id: string) => __TAURI_INVOKE<{
 	id: string,
 	title: string,
@@ -152,7 +152,7 @@ export type BackgroundTask = {
 	result?: FileHashResult | null,
 };
 
-export type CommandGroup = "Workspace" | "Application" | "Documents" | "Appearance" | "Development";
+export type CommandGroup = "Appearance" | "Application" | "Development" | "Documents" | "Workspace";
 
 export type CommandId = "newWindow" | "workspace" | "settings" | "shortcuts" | "toggleSidebar" | "toggleDetails" | "commandPalette" | "about" | "share" | "importText" | "exportText" | "saveSession" | "hashFile" | "zoomIn" | "zoomOut" | "zoomReset" | "checkUpdates" | "copyDiagnostics" | "openLogs" | "reload";
 
@@ -176,6 +176,7 @@ export type DiagnosticsSnapshot = {
 	updateStatus: string,
 	protocolRegistered: boolean,
 	webviewHealth: WebviewHealth,
+	placementError: string | null,
 };
 
 export type DirtyState = {
@@ -206,7 +207,7 @@ export type FileHashResult = {
 	sha256: string,
 };
 
-export type InterruptionKind = "quit" | "install-update" | "close-window";
+export type InterruptionKind = "quit" | "install-update" | "close-window" | "reload";
 
 export type InterruptionRequest = {
 	id: string,

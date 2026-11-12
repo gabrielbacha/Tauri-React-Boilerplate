@@ -1,0 +1,282 @@
+[
+  {
+    "path": "actions/workspace-actions.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "components/common/DeferredSurface.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/common/ErrorBoundary.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "components/common/ResourceState.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "components/dashboard/DemoPanel.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/dashboard/TaskPanel.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/dashboard/TaskRow.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "components/layout/ActivityPopover.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/layout/CommandPalette.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/layout/DragWindowRegion.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/layout/InterfacePreferencesEffect.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/layout/PanelResizeHandle.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/layout/QuitDialog.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/layout/SettingsControls.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/layout/SettingsNavigation.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/layout/ShareDialog.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/layout/ToolbarActions.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/layout/UpdateDialog.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/layout/WorkspaceDialogs.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/settings/AppearanceSettings.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "components/settings/SettingsPrimitives.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "components/ui/button.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "components/ui/confirm-dialog.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "components/ui/dialog.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "components/ui/dropdown-menu.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "components/ui/popover.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "components/ui/radio-group.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "components/ui/select-menu.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "components/ui/sonner.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "components/ui/switch.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "components/ui/tooltip.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "context/CommandsContext.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "context/DirtyStateContext.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "context/ScratchpadContext.tsx",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "hooks/useAsyncAction.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "hooks/useCompactSidebar.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "hooks/useDialogReturnFocus.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "hooks/useFeedbackAction.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "hooks/useMediaQuery.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "hooks/useOverlayFocus.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "hooks/usePanelMotion.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "hooks/useSidebarPreference.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "hooks/useSidebarPreview.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "hooks/useViewportWidth.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "layouts/BaseLayout.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "pages/SettingsPage.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "pages/StarterPage.tsx",
+    "default": true,
+    "kind": "module"
+  },
+  {
+    "path": "preferences/interface-preferences.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "routes/navigation-policy.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "settings/settings-navigation.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "utils/dom-overlays.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "utils/tailwind.ts",
+    "default": false,
+    "kind": "module"
+  },
+  {
+    "path": "styles/activity.css",
+    "default": false,
+    "kind": "style"
+  },
+  {
+    "path": "styles/settings.css",
+    "default": false,
+    "kind": "style"
+  },
+  {
+    "path": "styles/controls.css",
+    "default": false,
+    "kind": "style"
+  },
+  {
+    "path": "styles/dashboard.css",
+    "default": false,
+    "kind": "style"
+  }
+]

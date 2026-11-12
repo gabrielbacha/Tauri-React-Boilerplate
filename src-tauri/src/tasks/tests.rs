@@ -53,7 +53,15 @@ impl TaskPersistence for MemoryStore {
         if self.fail.load(Ordering::SeqCst) {
             return Err(AppError::storage("disk full"));
         }
-        *self.rows.lock().unwrap() = jobs.to_vec();
+        let mut rows = self.rows.lock().unwrap();
+        rows.retain(|(id, data)| !supported_record(data) || jobs.iter().any(|(current, _)| id == current));
+        for (id, data) in jobs {
+            if let Some(existing) = rows.iter_mut().find(|(current, _)| current == id) {
+                existing.1 = data.clone();
+            } else {
+                rows.push((*id, data.clone()));
+            }
+        }
         Ok(())
     }
 }
@@ -196,8 +204,9 @@ async fn stops_recovering_after_three_attempts() {
     job.input_version = 99;
     store.save_jobs(&[(job.snapshot.id, serde_json::to_string(&job).unwrap())]).unwrap();
     let manager =
-        TaskManager::new(Arc::new(Gate::default()).runner(), Some(store as Arc<dyn TaskPersistence>)).unwrap();
+        TaskManager::new(Arc::new(Gate::default()).runner(), Some(store.clone() as Arc<dyn TaskPersistence>)).unwrap();
     assert!(manager.list().is_empty(), "unknown input versions are skipped");
+    assert_eq!(store.load_jobs().unwrap(), vec![serde_json::to_string(&job).unwrap()]);
 }
 
 #[tokio::test]
@@ -214,7 +223,8 @@ async fn freezes_on_storage_failure() {
     store.fail.store(false, Ordering::SeqCst);
     manager.stop().await;
     manager.save_stopped().unwrap();
-    let saved = TaskManager::new(Arc::new(Gate::default()).runner(), Some(store as Arc<dyn TaskPersistence>)).unwrap();
+    let saved =
+        TaskManager::new(Arc::new(Gate::default()).runner(), Some(store.clone() as Arc<dyn TaskPersistence>)).unwrap();
     assert_eq!(saved.list().len(), 1);
     assert_eq!(saved.list()[0].status, TaskStatus::Queued, "running work recovers on the next launch");
 }
@@ -264,4 +274,57 @@ fn completion_tracker_announces_each_task_once() {
     let mut tracker = CompletionTracker::default();
     assert_eq!(tracker.update(std::slice::from_ref(&task)).len(), 1);
     assert!(tracker.update(std::slice::from_ref(&task)).is_empty());
+}
+
+#[tokio::test]
+async fn real_database_preserves_future_and_malformed_rows_across_manager_startup_and_close() {
+    use crate::database::Database;
+    use crate::state::DatabaseJobs;
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("jobs.sqlite");
+    let database = Arc::new(Database::open(&path).unwrap());
+    let mut job = PersistedJob {
+        snapshot: BackgroundTask {
+            id: Uuid::new_v4(),
+            kind: TaskKind::FileHash,
+            title: "known".into(),
+            status: TaskStatus::Running,
+            progress: 0.5,
+            message: "running".into(),
+            can_cancel: true,
+            can_retry: false,
+            created_at: now_iso(),
+            started_at: None,
+            finished_at: None,
+            result: None,
+        },
+        source: source("synthetic"),
+        attempts: 1,
+        input_version: INPUT_VERSION,
+    };
+    let known = (job.snapshot.id, serde_json::to_string(&job).unwrap());
+    job.snapshot.id = Uuid::new_v4();
+    job.input_version = 99;
+    let future = (job.snapshot.id, serde_json::to_string(&job).unwrap());
+    let malformed = "{\"partial\":".to_owned();
+    let mut records = vec![future.clone()];
+    for _ in 0..100 {
+        records.push((Uuid::new_v4(), malformed.clone()));
+    }
+    records.push(known.clone());
+    database.save_jobs(&records).unwrap();
+    let manager =
+        TaskManager::new(Arc::new(Gate::default()).runner(), Some(Arc::new(DatabaseJobs(Arc::clone(&database)))))
+            .unwrap();
+    assert_eq!(manager.list().len(), 1);
+    assert_eq!(manager.find(known.0).unwrap().status, TaskStatus::Queued);
+    manager.stop().await;
+    manager.save_stopped().unwrap();
+    database.close().unwrap();
+    drop(manager);
+    let reopened = Database::open(&path).unwrap();
+    let rows = reopened.load_jobs().unwrap();
+    assert!(rows.contains(&future.1));
+    assert_eq!(rows.iter().filter(|row| *row == &malformed).count(), 100);
+    assert_eq!(rows.len(), 102);
 }

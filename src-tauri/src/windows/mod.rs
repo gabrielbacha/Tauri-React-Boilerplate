@@ -204,6 +204,7 @@ pub struct PlacementStore {
     store: JsonStore,
     pending: Mutex<Option<WindowState>>,
     generation: AtomicU64,
+    last_error: Mutex<Option<AppError>>,
 }
 
 impl PlacementStore {
@@ -212,6 +213,7 @@ impl PlacementStore {
             store: JsonStore::new(profile, "window-state"),
             pending: Mutex::new(None),
             generation: AtomicU64::new(0),
+            last_error: Mutex::new(None),
         }
     }
 
@@ -221,24 +223,42 @@ impl PlacementStore {
     }
 
     pub fn save<R: Runtime>(&self, app: &AppHandle<R>, state: WindowState) {
-        *self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(state);
-        let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        let generation = self.queue(state);
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(Duration::from_millis(250)).await;
             let store = &app.state::<crate::state::AppState>().placement;
-            if store.generation.load(Ordering::SeqCst) == generation {
-                let _ = store.flush();
+            if store.generation.load(Ordering::SeqCst) == generation
+                && let Err(error) = store.flush()
+            {
+                log::error!("Placement save remains pending: {error}");
             }
         });
     }
 
+    fn queue(&self, state: WindowState) -> u64 {
+        let mut pending = self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        *pending = Some(state);
+        self.generation.fetch_add(1, Ordering::SeqCst) + 1
+    }
+    pub fn last_error(&self) -> Option<AppError> {
+        self.last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
+    }
     pub fn flush(&self) -> AppResult<()> {
-        let pending = self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
-        let Some(state) = pending else { return Ok(()) };
-        self.store
-            .write(&serde_json::json!({ "schemaVersion": versions::WINDOW_STATE, "windowState": state }))
-            .or_app(AppError::storage("Unable to save the window position."))
+        self.flush_with(|state| {
+            self.store.write(&serde_json::json!({ "schemaVersion": versions::WINDOW_STATE, "windowState": state }))
+        })
+    }
+    fn flush_with(&self, write: impl FnOnce(WindowState) -> std::io::Result<()>) -> AppResult<()> {
+        // Keep publication and acknowledgement under one lock. New requests cannot be overtaken by old writers.
+        let mut pending = self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let Some(state) = *pending else { return Ok(()) };
+        let result = write(state).or_app(AppError::storage("Unable to save the window position."));
+        *self.last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = result.as_ref().err().cloned();
+        if result.is_ok() {
+            *pending = None;
+        }
+        result
     }
 }
 
@@ -363,5 +383,54 @@ mod tests {
         let parsed = SavedWindow::parse(&serde_json::to_string(&saved).unwrap()).unwrap();
         assert_eq!(parsed.session.route, "/");
         assert_eq!(parsed.placement, DEFAULT_WINDOW_STATE);
+    }
+}
+
+#[cfg(test)]
+mod placement_tests {
+    use super::*;
+    use std::sync::{Arc, Barrier};
+    #[test]
+    fn failed_publication_remains_pending_for_an_unmodified_retry() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = PlacementStore::new(directory.path());
+        let state = WindowState { x: 123.0, ..DEFAULT_WINDOW_STATE };
+        store.queue(state);
+        assert!(store.flush_with(|_| Err(std::io::Error::other("disk full"))).is_err());
+        assert!(store.last_error().is_some());
+        store.flush().unwrap();
+        assert_eq!(store.load(), Some(state));
+        assert!(store.last_error().is_none());
+    }
+    #[test]
+    fn delayed_save_cannot_publish_over_a_newer_requested_placement() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = Arc::new(PlacementStore::new(directory.path()));
+        store.queue(DEFAULT_WINDOW_STATE);
+        let entered = Arc::new(Barrier::new(2));
+        let release = Arc::new(Barrier::new(2));
+        let first_store = Arc::clone(&store);
+        let started = Arc::clone(&entered);
+        let finish = Arc::clone(&release);
+        let first = std::thread::spawn(move || {
+            first_store
+                .flush_with(|_| {
+                    started.wait();
+                    finish.wait();
+                    Ok(())
+                })
+                .unwrap();
+        });
+        entered.wait();
+        let latest = WindowState { x: 456.0, ..DEFAULT_WINDOW_STATE };
+        let second_store = Arc::clone(&store);
+        let second = std::thread::spawn(move || {
+            second_store.queue(latest);
+            second_store.flush().unwrap();
+        });
+        release.wait();
+        first.join().unwrap();
+        second.join().unwrap();
+        assert_eq!(store.load(), Some(latest));
     }
 }

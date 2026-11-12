@@ -7,6 +7,10 @@ import { emitDebugEvent, serializeDebugValue, serializeError } from "@/component
 import { commands as generated, events } from "@/shared/bindings";
 import type { AppInfo, DesktopApi, DesktopPlatform, Finite } from "@/shared/desktop-api";
 
+import { desktopPlatform } from "../../packages/desktop-contracts/src/platform";
+import { createAsyncSubscription } from "../../packages/desktop-contracts/src/subscription";
+import { TAURI_TEXT_POLICY } from "../shared/text-policy";
+
 type Commands = typeof generated;
 type Target = ReturnType<typeof getCurrentWebviewWindow>;
 type TypedEvent<T> = (target: Target) => { listen: (callback: (event: { payload: T }) => void) => Promise<UnlistenFn> };
@@ -26,32 +30,11 @@ async function done(call: Promise<null>): Promise<void> {
 export function toDesktopPlatform(name: string): DesktopPlatform {
   if (name === "macos" || name === "darwin") return "darwin";
   if (name === "windows" || name === "win32") return "win32";
-  return "linux";
+  return desktopPlatform(name);
 }
 
 function withPlatform<T extends { platform: string }>(info: T): Omit<T, "platform"> & { platform: DesktopPlatform } {
   return { ...info, platform: toDesktopPlatform(info.platform) };
-}
-
-/**
- * Listen to an event for this window and return a synchronous unsubscribe, as React effects expect.
- * Events sent to all windows and events sent only to this window both arrive.
- */
-function subscribe<T>(event: TypedEvent<T>, target: Target, callback: (payload: T) => void): () => void {
-  let active = true;
-  let unlisten: UnlistenFn | undefined;
-  void event(target)
-    .listen(({ payload }) => {
-      if (active) callback(payload);
-    })
-    .then((stop) => {
-      if (active) unlisten = stop;
-      else stop();
-    });
-  return () => {
-    active = false;
-    unlisten?.();
-  };
 }
 
 /** In development, report every command to the debug panel with its duration and result. */
@@ -91,18 +74,32 @@ function traced(commands: Commands): Commands {
 export function createDesktopApi(): DesktopApi {
   const commands = traced(generated);
   const current = getCurrentWebviewWindow();
+  const owners = new Map<unknown, ReturnType<typeof createAsyncSubscription<unknown>>>();
+  const ownerFor = <T>(event: TypedEvent<T>): ReturnType<typeof createAsyncSubscription<unknown>> => {
+    let owner = owners.get(event);
+    if (!owner) {
+      owner = createAsyncSubscription<unknown>((dispatch) => event(current).listen(({ payload }) => dispatch(payload)));
+      owners.set(event, owner);
+    }
+    return owner;
+  };
   const on =
     <T>(event: TypedEvent<T>) =>
-    (callback: (payload: T) => void) =>
-      subscribe(event, current, callback);
+    (callback: (payload: T) => void): (() => void) =>
+      ownerFor(event).subscribe((payload) => callback(payload as T));
   const onFinite =
     <T>(event: TypedEvent<T>) =>
-    (callback: (payload: Finite<T>) => void) =>
-      subscribe(event, current, (payload) => callback(payload as Finite<T>));
+    (callback: (payload: Finite<T>) => void): (() => void) =>
+      ownerFor(event).subscribe((payload) => callback(payload as Finite<T>));
+  const ready = async (): Promise<void> => {
+    await Promise.all([...owners.values()].map((owner) => owner.ready()));
+  };
 
   return {
+    ready,
+    textPolicy: TAURI_TEXT_POLICY,
     documents: {
-      list: (offset) => commands.documentsList(offset ?? null),
+      list: (offset, limit) => commands.documentsList(offset ?? null, limit ?? null),
       get: (id) => commands.documentsGet(id),
       create: (input) => commands.documentsCreate(input),
       save: (id, revision, input) => commands.documentsSave(id, revision, input),
@@ -173,7 +170,10 @@ export function createDesktopApi(): DesktopApi {
     },
     deepLinks: {
       getProtocol: () => commands.deepLinksGetProtocol(),
-      ready: () => done(commands.deepLinksReady()),
+      ready: async () => {
+        await ready();
+        await done(commands.deepLinksReady());
+      },
       onIntent: on(events.deepLinkOpened),
     },
     diagnostics: {

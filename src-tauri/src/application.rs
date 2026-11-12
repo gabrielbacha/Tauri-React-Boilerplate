@@ -218,11 +218,13 @@ pub fn deliver_deep_links<R: Runtime>(app: &AppHandle<R>) {
         registry.current().filter(|label| registry.is_ready(label))
     };
     let Some(label) = label else { return };
-    for intent in lock(&state.deep_links).drain() {
-        if let Err(error) = DeepLinkOpened(intent).emit_to(app, label.as_str()) {
+    lock(&state.deep_links).deliver(|intent| match DeepLinkOpened(intent.clone()).emit_to(app, label.as_str()) {
+        Ok(()) => true,
+        Err(error) => {
             log::error!("Unable to deliver a deep link: {error}");
+            false
         }
-    }
+    });
 }
 
 pub fn create_window<R: Runtime>(app: &AppHandle<R>, saved: Option<SavedWindow>) -> AppResult<String> {
@@ -378,6 +380,23 @@ pub fn request_update_restart<R: Runtime>(app: &AppHandle<R>) -> AppResult<()> {
     Ok(())
 }
 
+pub fn request_reload<R: Runtime>(app: &AppHandle<R>, label: &str) {
+    let app_for_action = app.clone();
+    let owned_label = label.to_owned();
+    request(
+        app,
+        &Scope::Window(label.to_owned()),
+        InterruptionKind::Reload,
+        Box::new(move || {
+            if let Some(window) = app_for_action.get_webview_window(&owned_label)
+                && let Err(error) = window.reload()
+            {
+                log::error!("Unable to reload workspace: {error}");
+            }
+        }),
+    );
+}
+
 fn request<R: Runtime>(app: &AppHandle<R>, scope: &Scope, kind: InterruptionKind, proceed: Proceed) {
     let state = app.state::<AppState>();
     // Lock order is always window registry, then interruptions. Task counts are read before either.
@@ -446,12 +465,13 @@ async fn native_confirm<R: Runtime>(app: &AppHandle<R>, scope: &Scope, request: 
     }
     let (title, action) = match request.kind {
         InterruptionKind::CloseWindow => ("Close window?", "Close"),
+        InterruptionKind::Reload => ("Reload workspace?", "Reload"),
         InterruptionKind::Quit => ("Quit application?", "Quit"),
         InterruptionKind::InstallUpdate => ("Restart to install update?", "Restart"),
     };
     let message = format!(
         "Work in progress will be interrupted: {}. Unsaved edits will be discarded. Background jobs are preserved for recovery.",
-        parts.join(" and ")
+        if parts.is_empty() { "the renderer will restart".to_owned() } else { parts.join(" and ") }
     );
     let parent = match scope {
         Scope::Window(label) => app.get_webview_window(label),

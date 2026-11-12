@@ -104,6 +104,7 @@ pub type Listener = Arc<dyn Fn(Vec<BackgroundTask>) + Send + Sync>;
 
 pub trait TaskPersistence: Send + Sync {
     fn load_jobs(&self) -> AppResult<Vec<String>>;
+    /// Preserve unsupported stored rows when publishing the known queue.
     fn save_jobs(&self, jobs: &[(Uuid, String)]) -> AppResult<()>;
 }
 
@@ -135,6 +136,10 @@ pub fn default_runner() -> Runner {
 
 fn storage_unavailable() -> AppError {
     AppError::storage("Task storage is unavailable. Scheduling stopped; restart after resolving the storage problem.")
+}
+
+pub(crate) fn supported_record(row: &str) -> bool {
+    serde_json::from_str::<PersistedJob>(row).is_ok_and(|job| job.input_version == INPUT_VERSION)
 }
 
 impl TaskManager {

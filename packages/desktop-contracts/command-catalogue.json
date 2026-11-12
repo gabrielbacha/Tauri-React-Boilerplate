@@ -1,0 +1,122 @@
+[
+  {
+    "id": "newWindow",
+    "label": "New Window",
+    "group": "Workspace",
+    "binding": "Mod+N"
+  },
+  {
+    "id": "workspace",
+    "label": "Workspace",
+    "group": "Workspace",
+    "binding": "Mod+1"
+  },
+  {
+    "id": "settings",
+    "label": "Settings…",
+    "group": "Workspace",
+    "binding": "Mod+,"
+  },
+  {
+    "id": "shortcuts",
+    "label": "Keyboard shortcuts",
+    "group": "Workspace",
+    "binding": null
+  },
+  {
+    "id": "toggleSidebar",
+    "label": "Toggle sidebar",
+    "group": "Workspace",
+    "binding": null
+  },
+  {
+    "id": "toggleDetails",
+    "label": "Toggle details",
+    "group": "Workspace",
+    "binding": "Mod+J"
+  },
+  {
+    "id": "commandPalette",
+    "label": "Search commands…",
+    "group": "Workspace",
+    "binding": "Mod+K"
+  },
+  {
+    "id": "about",
+    "label": "About",
+    "group": "Application",
+    "binding": null
+  },
+  {
+    "id": "share",
+    "label": "Share workspace",
+    "group": "Application",
+    "binding": null
+  },
+  {
+    "id": "importText",
+    "label": "Import text…",
+    "group": "Documents",
+    "binding": "Mod+O"
+  },
+  {
+    "id": "exportText",
+    "label": "Export text…",
+    "group": "Documents",
+    "binding": "Mod+Shift+S"
+  },
+  {
+    "id": "saveSession",
+    "label": "Save document",
+    "group": "Documents",
+    "binding": "Mod+S"
+  },
+  {
+    "id": "hashFile",
+    "label": "Choose file to hash",
+    "group": "Documents",
+    "binding": null
+  },
+  {
+    "id": "zoomIn",
+    "label": "Zoom in",
+    "group": "Appearance",
+    "binding": "Mod+Plus"
+  },
+  {
+    "id": "zoomOut",
+    "label": "Zoom out",
+    "group": "Appearance",
+    "binding": "Mod+-"
+  },
+  {
+    "id": "zoomReset",
+    "label": "Actual size",
+    "group": "Appearance",
+    "binding": "Mod+0"
+  },
+  {
+    "id": "checkUpdates",
+    "label": "Check for updates",
+    "group": "Application",
+    "binding": null
+  },
+  {
+    "id": "copyDiagnostics",
+    "label": "Copy diagnostics",
+    "group": "Application",
+    "binding": null
+  },
+  {
+    "id": "openLogs",
+    "label": "Open logs",
+    "group": "Application",
+    "binding": null
+  },
+  {
+    "id": "reload",
+    "label": "Reload…",
+    "group": "Development",
+    "binding": "Mod+R"
+  }
+]

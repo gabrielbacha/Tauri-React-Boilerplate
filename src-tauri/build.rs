@@ -28,7 +28,56 @@ struct AppConfig {
 const PERMISSIONS: &str = "permissions/app-commands.toml";
 const DESTINATIONS: [&str; 4] = ["repository", "documentation", "license", "support"];
 
+#[derive(Deserialize)]
+struct CatalogueEntry {
+    id: String,
+    label: String,
+    group: String,
+    binding: Option<String>,
+}
+fn generate_catalogue() {
+    const SOURCE: &str = "../packages/desktop-contracts/command-catalogue.json";
+    println!("cargo::rerun-if-changed={SOURCE}");
+    let commands: Vec<CatalogueEntry> =
+        serde_json::from_str(&fs::read_to_string(SOURCE).expect("read canonical command catalogue"))
+            .expect("valid command catalogue");
+    let variant = |id: &str| {
+        assert!(id.chars().all(char::is_alphanumeric));
+        let mut chars = id.chars();
+        format!("{}{}", chars.next().expect("command id").to_ascii_uppercase(), chars.as_str())
+    };
+    let ids = commands.iter().map(|command| variant(&command.id)).collect::<Vec<_>>().join(",");
+    let groups = commands.iter().map(|command| command.group.as_str()).collect::<std::collections::BTreeSet<_>>();
+    assert!(groups.iter().all(|group| group.chars().all(char::is_alphanumeric)));
+    let groups = groups.into_iter().collect::<Vec<_>>().join(",");
+    let entries = commands
+        .iter()
+        .map(|command| {
+            format!(
+                "spec(CommandId::{}, {:?}, CommandGroup::{}, {}),",
+                variant(&command.id),
+                command.label,
+                command.group,
+                command.binding.as_ref().map_or_else(|| "None".to_owned(), |binding| format!("Some({binding:?})"))
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let generated = format!(
+        r#"#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum CommandId {{ {ids} }}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
+pub enum CommandGroup {{ {groups} }}
+pub const COMMANDS: [CommandSpec; {}] = [{entries}];"#,
+        commands.len()
+    );
+    fs::write(Path::new(&env::var("OUT_DIR").expect("OUT_DIR")).join("command_catalogue.rs"), generated)
+        .expect("write native command catalogue");
+}
+
 fn main() {
+    generate_catalogue();
     println!("cargo::rerun-if-changed=../package.json");
     println!("cargo::rerun-if-changed={PERMISSIONS}");
     println!("cargo::rustc-check-cfg=cfg(showcase)");

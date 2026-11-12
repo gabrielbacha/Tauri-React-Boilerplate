@@ -37,13 +37,18 @@ pub fn documents_list(
     state: State<'_, AppState>,
     window: Window,
     offset: Option<u32>,
+    limit: Option<u32>,
 ) -> AppResult<Vec<DocumentSummary>> {
     caller(&state, &window)?;
     let offset = offset.unwrap_or(0);
     if offset > 1_000_000 {
         return Err(AppError::invalid("Invalid page."));
     }
-    state.database.list_documents(offset)
+    let limit = limit.unwrap_or(100);
+    if !(1..=1_000_100).contains(&limit) {
+        return Err(AppError::invalid("Invalid list size."));
+    }
+    state.database.list_document_range(offset, limit)
 }
 
 #[tauri::command]

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DesktopApi } from "@/shared/desktop-api";
 import type { SavedDocument } from "@/shared/persistence";
 
+import { TAURI_TEXT_POLICY } from "../shared/text-policy";
 import { useSavedDocument } from "./useSavedDocument";
 
 vi.mock("sonner", () => ({
@@ -39,6 +40,7 @@ beforeEach(() => {
     },
   };
   window.desktop = {
+    textPolicy: TAURI_TEXT_POLICY,
     documents,
     window: {
       getSession: vi.fn<DesktopApi["window"]["getSession"]>().mockResolvedValue({ documentId: saved.id, route: "/" }),
@@ -146,4 +148,16 @@ it("ignores a stale refresh response after a newer document event", async () => 
   await waitFor(() => expect(result.current.draft).toBe("latest"));
   await act(async () => resolveOlder({ ...saved, text: "older", revision: 2 }));
   expect(result.current).toMatchObject({ draft: "latest", document: { revision: 3 } });
+});
+
+it("accepts every native-valid supplementary-character import into the actual editor hook", async () => {
+  const hook = renderHook(() => useSavedDocument());
+  await waitFor(() => expect(hook.result.current.busy).toBe(false));
+  const imported = "😀".repeat(6000);
+  let accepted = false;
+  act(() => {
+    accepted = hook.result.current.replaceDraft(imported);
+  });
+  expect(accepted).toBe(true);
+  expect(hook.result.current.draft).toBe(imported);
 });

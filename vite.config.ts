@@ -10,8 +10,15 @@ const debug = Boolean(process.env.TAURI_ENV_DEBUG);
 
 // Tauri serves the build from the system webview: WebView2 (Chromium) on Windows, WebKit elsewhere.
 export default defineConfig({
+  envDir: process.env.TAURI_TEST_ENV_DIR,
   plugins: [react(), tailwindcss()],
-  resolve: { alias: { "@": resolve(import.meta.dirname, "src") } },
+  resolve: {
+    alias: {
+      "@desktop": resolve(import.meta.dirname, "src"),
+      "@contracts": resolve(import.meta.dirname, "packages/desktop-contracts/src"),
+      "@": resolve(import.meta.dirname, "src"),
+    },
+  },
   clearScreen: false,
   envPrefix: ["VITE_", "TAURI_ENV_"],
   server: {

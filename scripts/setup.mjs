@@ -1,11 +1,13 @@
+import { spawnSync } from "node:child_process";
 // Rename the template: identity, protocol, variant, repository, and optionally an updater key.
 // Interactive in a terminal; every value can also be passed as a flag (see OPTIONS).
 // Uses only Node.js built-ins, so it runs before `pnpm install`.
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { isAbsolute, relative, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 
+import { publishIdentity } from "./identity-transaction.mjs";
 import {
   APP_ID,
   EMAIL,
@@ -26,7 +28,6 @@ import {
   run,
   setCargoPackageField,
   updaterEndpoint,
-  writeJson,
 } from "./project.mjs";
 
 export const OPTIONS = [
@@ -152,6 +153,8 @@ export function planSetup(root, answers) {
   if (!nextHtml.includes(`<title>${escapeHtml(productName)}</title>`))
     throw new Error("Could not find the HTML title.");
 
+  const origin = resolve(root, "template-origin.json");
+  const revision = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" });
   return {
     summary: { productName, packageName, appId, variant, protocol, storageNamespace, repository: effectiveRepo },
     writes: [
@@ -160,19 +163,21 @@ export function planSetup(root, answers) {
       [files.capability, `${JSON.stringify(nextCapability, null, 2)}\n`],
       [files.cargoToml, nextCargo],
       [files.html, nextHtml],
+      ...(existsSync(origin)
+        ? []
+        : [
+            [
+              origin,
+              `${JSON.stringify({ repository: `https://github.com/${TEMPLATE_REPOSITORY}`, revision: revision.status === 0 ? revision.stdout.trim() : null }, null, 2)}\n`,
+            ],
+          ]),
     ],
   };
 }
 
 /** Write every file, or restore all of them if any write fails. */
 export function applySetup(plan) {
-  const originals = plan.writes.map(([file]) => [file, readFileSync(file, "utf8")]);
-  try {
-    for (const [file, content] of plan.writes) writeFileSync(file, content);
-  } catch (error) {
-    for (const [file, content] of originals) writeFileSync(file, content);
-    throw error;
-  }
+  publishIdentity(dirname(plan.writes[0][0]), plan.writes);
 }
 
 /** Create an updater key pair outside the project and return the public key. */
@@ -231,16 +236,6 @@ async function main() {
       plan = planSetup(ROOT, answers);
     }
     applySetup(plan);
-    const origin = resolve(ROOT, "template-origin.json");
-    if (!existsSync(origin)) {
-      let revision = null;
-      try {
-        revision = run("git", ["rev-parse", "HEAD"], { capture: true }).trim();
-      } catch {
-        // Not a Git checkout.
-      }
-      writeJson(origin, { repository: `https://github.com/${TEMPLATE_REPOSITORY}`, revision });
-    }
     if (!repository) stdout.write("Set the GitHub repository before release; template publishing links remain.\n");
     if (!args["skip-install"]) {
       run("pnpm", ["install"]);

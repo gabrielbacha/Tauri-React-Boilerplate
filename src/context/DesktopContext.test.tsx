@@ -25,6 +25,7 @@ it("reacts to system appearance while keeping task events out of shell consumers
   vi.stubGlobal("matchMedia", () => media);
   const subscribe = (): (() => void) => () => {};
   window.desktop = {
+    ready: async () => {},
     app: { getInfo: async () => ({ name: "Test", version: "1", protocol: "test" }) },
     preferences: {
       migrateInterface: async () => ({
@@ -99,6 +100,7 @@ it("keeps newer subscription events when startup snapshots resolve late", async 
     removeEventListener: vi.fn<() => void>(),
   }));
   window.desktop = {
+    ready: async () => {},
     app: { getInfo: async () => ({ name: "Test" }) },
     preferences: {
       migrateInterface: () => initial.promise,

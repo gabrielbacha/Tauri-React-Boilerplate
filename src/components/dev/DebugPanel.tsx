@@ -27,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { router } from "@/routes/router";
 import { cn } from "@/utils/tailwind";
 
 import {
@@ -37,6 +38,8 @@ import {
   emitDebugEvent,
   serializeError,
 } from "./debug-events";
+import { boundedDebugValue, debugText } from "./debug-value";
+import { DisposableScope, collectDisposers } from "./disposable-scope";
 import { Badge, DropdownMenuShortcut, Tabs, TabsContent, TabsList, TabsTrigger } from "./primitives";
 
 type AppDiagnostics = {
@@ -173,10 +176,10 @@ function isTypingTarget(target: EventTarget | null) {
 
 function readLocationState(): LocationState {
   return {
-    pathname: window.location.pathname,
-    href: window.location.href,
-    search: window.location.search,
-    hash: window.location.hash,
+    pathname: router.state.location.pathname,
+    href: router.state.location.href,
+    search: router.state.location.searchStr,
+    hash: router.state.location.hash,
   };
 }
 
@@ -308,6 +311,10 @@ function EntryHighlight() {
 
 export function DebugPanel() {
   const [open, setOpen] = React.useState(false);
+  const openRef = React.useRef(open);
+  React.useLayoutEffect(() => {
+    openRef.current = open;
+  }, [open]);
   const [panelSide, setPanelSide] = React.useState<DebugPanelSide>("right");
   const [activeTab, setActiveTab] = React.useState<DebugPanelTab>("overview");
   const [attached, setAttached] = React.useState(false);
@@ -416,6 +423,7 @@ export function DebugPanel() {
   }, [attached]);
 
   React.useEffect(() => {
+    if (!open) return;
     function updateThemeInfo() {
       const htmlClass = document.documentElement.className;
       const system = window.matchMedia(COLOR_SCHEME_QUERY).matches ? "dark" : "light";
@@ -447,11 +455,12 @@ export function DebugPanel() {
       mediaQuery.removeEventListener("change", handleMediaChange);
       observer.disconnect();
     };
-  }, []);
+  }, [open]);
 
   React.useEffect(() => {
+    const scope = new DisposableScope();
     async function loadAppInfo() {
-      if (!tauriReady) {
+      if (!tauriReady || !open) {
         return;
       }
 
@@ -462,6 +471,7 @@ export function DebugPanel() {
         getTauriVersion(),
       ]);
 
+      if (scope.closed) return;
       setAppInfo({
         name,
         version,
@@ -470,17 +480,20 @@ export function DebugPanel() {
       });
     }
 
-    void loadAppInfo();
-  }, [tauriReady]);
+    void loadAppInfo().catch((error) => console.warn("Diagnostic snapshot failed", error));
+    return scope.dispose;
+  }, [tauriReady, open]);
 
   React.useEffect(() => {
+    const scope = new DisposableScope();
     async function loadPaths() {
-      if (!tauriReady) {
+      if (!tauriReady || !open) {
         return;
       }
 
       const [dataPath, configPath, resourcesPath] = await Promise.all([appDataDir(), appConfigDir(), resourceDir()]);
 
+      if (scope.closed) return;
       setPathInfo({
         appDataDir: dataPath,
         appConfigDir: configPath,
@@ -488,8 +501,9 @@ export function DebugPanel() {
       });
     }
 
-    void loadPaths();
-  }, [tauriReady]);
+    void loadPaths().catch((error) => console.warn("Diagnostic snapshot failed", error));
+    return scope.dispose;
+  }, [tauriReady, open]);
 
   React.useEffect(() => {
     function updateLocationState() {
@@ -511,142 +525,127 @@ export function DebugPanel() {
 
     updateLocationState();
 
-    const intervalId = window.setInterval(updateLocationState, 250);
+    const removeNavigation = router.subscribe("onResolved", updateLocationState);
     window.addEventListener("hashchange", updateLocationState);
     window.addEventListener("popstate", updateLocationState);
 
     return () => {
-      window.clearInterval(intervalId);
+      removeNavigation();
       window.removeEventListener("hashchange", updateLocationState);
       window.removeEventListener("popstate", updateLocationState);
     };
   }, []);
 
   React.useEffect(() => {
+    if (!open || !tauriReady) return;
+    const scope = new DisposableScope();
+    let frame: number | null = null;
+    let busy = false;
+    let queued = false;
     async function refreshWindowInfo() {
-      if (!tauriReady) {
-        return;
+      if (scope.closed) return;
+      busy = true;
+      try {
+        const currentWindow = getCurrentWindow();
+        const currentWebviewWindow = getCurrentWebviewWindow();
+        const [
+          title,
+          tauriInnerSize,
+          outerSize,
+          outerPosition,
+          scaleFactor,
+          visible,
+          focused,
+          maximized,
+          fullscreen,
+          decorated,
+          monitor,
+        ] = await Promise.all([
+          currentWindow.title(),
+          currentWindow.innerSize(),
+          currentWindow.outerSize(),
+          currentWindow.outerPosition(),
+          currentWindow.scaleFactor(),
+          currentWindow.isVisible(),
+          currentWindow.isFocused(),
+          currentWindow.isMaximized(),
+          currentWindow.isFullscreen(),
+          currentWindow.isDecorated(),
+          currentMonitor(),
+        ]);
+
+        if (scope.closed) return;
+        setWindowInfo({
+          label: currentWebviewWindow.label,
+          title,
+          viewportSize: {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          },
+          tauriInnerSize,
+          outerSize,
+          outerPosition,
+          scaleFactor,
+          visible,
+          focused,
+          maximized,
+          fullscreen,
+          decorated,
+          monitor: monitor
+            ? {
+                name: monitor.name,
+                size: monitor.size,
+                scaleFactor: monitor.scaleFactor,
+              }
+            : null,
+        });
+      } catch (error) {
+        console.warn("Diagnostic window snapshot failed", error);
+      } finally {
+        busy = false;
+        if (queued) schedule();
       }
-
-      const currentWindow = getCurrentWindow();
-      const currentWebviewWindow = getCurrentWebviewWindow();
-      const [
-        title,
-        tauriInnerSize,
-        outerSize,
-        outerPosition,
-        scaleFactor,
-        visible,
-        focused,
-        maximized,
-        fullscreen,
-        decorated,
-        monitor,
-      ] = await Promise.all([
-        currentWindow.title(),
-        currentWindow.innerSize(),
-        currentWindow.outerSize(),
-        currentWindow.outerPosition(),
-        currentWindow.scaleFactor(),
-        currentWindow.isVisible(),
-        currentWindow.isFocused(),
-        currentWindow.isMaximized(),
-        currentWindow.isFullscreen(),
-        currentWindow.isDecorated(),
-        currentMonitor(),
-      ]);
-
-      setWindowInfo({
-        label: currentWebviewWindow.label,
-        title,
-        viewportSize: {
-          width: window.innerWidth,
-          height: window.innerHeight,
-        },
-        tauriInnerSize,
-        outerSize,
-        outerPosition,
-        scaleFactor,
-        visible,
-        focused,
-        maximized,
-        fullscreen,
-        decorated,
-        monitor: monitor
-          ? {
-              name: monitor.name,
-              size: monitor.size,
-              scaleFactor: monitor.scaleFactor,
-            }
-          : null,
+    }
+    function schedule() {
+      if (scope.closed) return;
+      queued = true;
+      if (busy || frame !== null) return;
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        queued = false;
+        void refreshWindowInfo();
       });
     }
-
-    void refreshWindowInfo();
-
-    if (!tauriReady) {
-      return;
-    }
-
+    scope.add(() => {
+      if (frame !== null) cancelAnimationFrame(frame);
+    });
     const currentWindow = getCurrentWindow();
-    let unlistenFocus: (() => void) | undefined;
-    let unlistenResize: (() => void) | undefined;
-    let unlistenMove: (() => void) | undefined;
-
-    void currentWindow
-      .onFocusChanged(() => {
-        emitDebugEvent({
-          id: crypto.randomUUID(),
-          kind: "runtime-event",
-          name: "window:focus-changed",
-          source: "window",
-          timestamp: new Date().toISOString(),
-        });
-        void refreshWindowInfo();
-      })
-      .then((unlisten) => {
-        unlistenFocus = unlisten;
+    function changed(name: string) {
+      if (scope.closed) return;
+      emitDebugEvent({
+        id: crypto.randomUUID(),
+        kind: "runtime-event",
+        name,
+        source: "window",
+        timestamp: new Date().toISOString(),
       });
-
-    void currentWindow
-      .onResized(() => {
-        emitDebugEvent({
-          id: crypto.randomUUID(),
-          kind: "runtime-event",
-          name: "window:resized",
-          source: "window",
-          timestamp: new Date().toISOString(),
-        });
-        void refreshWindowInfo();
-      })
-      .then((unlisten) => {
-        unlistenResize = unlisten;
-      });
-
-    void currentWindow
-      .onMoved(() => {
-        emitDebugEvent({
-          id: crypto.randomUUID(),
-          kind: "runtime-event",
-          name: "window:moved",
-          source: "window",
-          timestamp: new Date().toISOString(),
-        });
-        void refreshWindowInfo();
-      })
-      .then((unlisten) => {
-        unlistenMove = unlisten;
-      });
-
-    return () => {
-      unlistenFocus?.();
-      unlistenResize?.();
-      unlistenMove?.();
-    };
-  }, [locationState.pathname, tauriReady]);
+      schedule();
+    }
+    void collectDisposers(
+      [
+        currentWindow.onFocusChanged(() => changed("window:focus-changed")),
+        currentWindow.onResized(() => changed("window:resized")),
+        currentWindow.onMoved(() => changed("window:moved")),
+      ],
+      scope,
+    ).catch((error) => console.warn("Diagnostic listeners failed", error));
+    schedule();
+    return scope.dispose;
+  }, [tauriReady, open]);
 
   React.useEffect(() => {
     function queueHighlight(id: string, setIds: React.Dispatch<React.SetStateAction<string[]>>) {
+      if (!openRef.current) return;
       setIds((current) => (current.includes(id) ? current : [id, ...current]));
 
       const timeoutId = window.setTimeout(() => {
@@ -727,19 +726,7 @@ export function DebugPanel() {
     };
 
     function capture(level: LogDebugEvent["level"], args: unknown[], originalMethod: (...data: unknown[]) => void) {
-      const message = args
-        .map((value) => {
-          if (typeof value === "string") {
-            return value;
-          }
-
-          try {
-            return JSON.stringify(value);
-          } catch {
-            return String(value);
-          }
-        })
-        .join(" ");
+      const message = debugText(args);
 
       emitDebugEvent({
         id: crypto.randomUUID(),
@@ -772,16 +759,16 @@ export function DebugPanel() {
       capture("debug", args, originalConsole.debug);
     };
 
-    let detachConsole: (() => void) | undefined;
+    const consoleScope = new DisposableScope();
 
     if (tauriReady) {
-      void attachConsole().then((detach) => {
-        detachConsole = detach;
-      });
+      void attachConsole()
+        .then((detach) => consoleScope.add(detach))
+        .catch((error) => originalConsole.warn("Diagnostic console setup failed", error));
     }
 
     return () => {
-      detachConsole?.();
+      consoleScope.dispose();
       window.console.log = originalConsole.log;
       window.console.info = originalConsole.info;
       window.console.warn = originalConsole.warn;
@@ -869,7 +856,7 @@ export function DebugPanel() {
       capturedAt: new Date().toISOString(),
     };
 
-    await navigator.clipboard.writeText(JSON.stringify(snapshot, null, 2));
+    await navigator.clipboard.writeText(JSON.stringify(boundedDebugValue(snapshot, 65536)));
     setCopied(true);
     window.setTimeout(() => {
       setCopied(false);

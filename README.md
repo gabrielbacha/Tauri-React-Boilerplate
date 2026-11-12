@@ -18,7 +18,7 @@ For a renamed starter with explicit identity and an updater key:
 pnpm run setup --name "My App" --app-id com.example.myapp --repo owner/my-app --variant clean --updater-key ~/.tauri/my-app.key
 ```
 
-Setup writes the product name, package name, application ID, URL protocol, repository, variant, and updater key to `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, the capability, and `index.html`, or restores them all if a write fails. It then installs dependencies and regenerates the bindings. Treat the application ID as permanent once released. Replace the icons with `pnpm tauri icon <your-icon.png>`. Run `pnpm run verify:config` to check the result.
+Setup writes the product name, package name, application ID, URL protocol, repository, variant, and updater key to `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, the capability, and `index.html`, with staged files and a flushed recovery journal. If a write fails, it attempts every restore and retains readable backups for any incomplete rollback. New origin metadata is part of that transaction. It then installs dependencies and regenerates the bindings. Treat the application ID as permanent once released. Replace the icons with `pnpm tauri icon <your-icon.png>`. Run `pnpm run verify:config` to check the result.
 
 ## Commands
 
@@ -31,7 +31,7 @@ Setup writes the product name, package name, application ID, URL protocol, repos
 | `pnpm run package`                    | Build and verify a debug app without installers                                                      |
 | `pnpm run smoke`                      | Launch that build with a temporary profile and check it starts cleanly                               |
 | `pnpm run make`                       | Build installers for this computer into `dist/release-input/`; add `--dist` for the smallest binary  |
-| `pnpm run release`                    | Validate, build, and assemble a local release; add `--publish` to upload                             |
+| `pnpm run release`                    | Validate, build, and assemble offline host artifacts; publication uses the tagged workflow           |
 | `pnpm run test:e2e`                   | WebdriverIO tests through tauri-driver (Linux, Windows)                                              |
 | `pnpm run test:e2e:docker`            | The Linux end-to-end suite in Docker, from any computer                                              |
 | `pnpm run test:template`              | Rename both variants, validate, test a generated feature, build, launch, and run E2E where supported |
@@ -45,7 +45,7 @@ Setup writes the product name, package name, application ID, URL protocol, repos
 - `src/platform/desktop.ts` adapts the bindings to one `window.desktop` API, so interface code never calls `invoke` directly.
 - `src/shared/` holds types from the bindings and pure helpers. `src/` otherwise is an ordinary React application.
 
-The command registry (labels and default shortcuts) lives in Rust and is exported to TypeScript, so the macOS menu, toolbar, command palette, and shortcut settings always agree. On Windows and Linux the windows are frameless: the in-window app menu and a keyboard handler replace the native menu.
+The [canonical desktop package](packages/desktop-contracts/README.md) owns the command catalogue, document state, and portable input rules. The build generates native command enums/specifications from its checked catalogue and tauri-specta exports the bindings, so the macOS menu, toolbar, command palette, and shortcut settings agree. On Windows and Linux the windows are frameless: the in-window app menu and a keyboard handler replace the native menu.
 
 ### Features
 
@@ -70,7 +70,7 @@ Data lives in `<appData>/<appId>` (`<appId>.development` for development builds)
 
 Pushing a `vX.Y.Z` tag runs the release workflow. The tag must match `package.json`. Quality checks, the Linux smoke test, and end-to-end tests run first; then macOS (Apple silicon and Intel), Windows x64, and Linux x64 build in parallel. The publish job checks every artifact name, version, and signature, writes the updater feed `latest.json` and `SHA256SUMS.txt`, and creates the GitHub release. Artifact names use the package name and never contain spaces, so update URLs stay valid.
 
-Only builds signed with the updater key include updater archives; others ship installers only. Local releases run the same assembly into `dist/release/`. A `GH_TOKEN` alone never publishes; pass `--publish`.
+Only builds signed with the updater key include updater archives; others ship installers only. Local builds assemble offline output into `dist/release/`; local `--publish` is refused before any build or upload. The tagged workflow owns the supported public platform set. Offline source metadata records the base commit and whether the tree is clean.
 
 Installer-only releases need no updater keys. `node scripts/verify-config.mjs --strict` requires a renamed identity, repository, and custom icons. Add `--updates` to require both the updater public key in configuration and `TAURI_SIGNING_PRIVATE_KEY`. OS signing and notarization are separate distribution requirements. If update installation fails after storage is saved, a native error explains how to reopen the app and the process exits with a failure status.
 
@@ -108,3 +108,5 @@ Template readiness means both renamed variants pass configuration validation, un
 Keep the latest successful workflow run and completed QA checklist with your release evidence. The presence of a workflow is not evidence that its platform checks have passed.
 
 Maintainer verification on 2026-10-01: macOS arm64 passed local checks, debug packaging and smoke, and acceptance of both renamed variants with generated-feature tests. Windows/Linux CI, native manual QA, and real signed updates remain unverified. The local Docker daemon was unavailable for Linux E2E.
+
+Shared copies are bound to `packages/desktop-contracts/export-manifest.json`; `node scripts/check-desktop-contracts.mjs` rejects drift. Only the Electron owner regenerates that manifest. Text and titles retain the native Unicode scalar limit; combining marks count separately, and UTF-8 bytes have a separate cap. Synthetic builds set `TAURI_TEST_ENV_DIR` to an empty generated directory. The optional browser fixture takes a loopback preview URL and an existing pinned Playwright package path; it installs nothing and blocks external requests. Native startup uses a generated debug-only profile. Physical permissions, native focus, signing, and Windows/Linux acceptance remain separate QA steps.

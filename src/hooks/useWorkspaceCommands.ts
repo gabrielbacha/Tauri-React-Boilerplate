@@ -24,7 +24,6 @@ export function useWorkspaceCommands({
   actions,
   narrow,
   setSettingsCollapsed,
-  setReloadOpen,
   setAboutOpen,
   setShareOpen,
 }: {
@@ -68,7 +67,7 @@ export function useWorkspaceCommands({
         void router.navigate({ to: "/settings", search: { section: "shortcuts" } }).then(() => {
           if (narrow) setSettingsCollapsed(true);
         });
-      if (id === "reload") setReloadOpen(true);
+      if (id === "reload") void runAction(id, () => window.desktop.diagnostics.reload());
       if (id === "about") setAboutOpen(true);
       if (id === "share") setShareOpen(true);
       if (id === "importText") void scratchpad?.importText();
@@ -92,7 +91,6 @@ export function useWorkspaceCommands({
       checkForUpdates,
       runAction,
       setSettingsCollapsed,
-      setReloadOpen,
       setAboutOpen,
       setShareOpen,
     ],

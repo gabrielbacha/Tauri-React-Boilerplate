@@ -50,8 +50,10 @@ export type { ShortcutOverrides };
  * `on` subscribe to an event and return an unsubscribe function.
  */
 export interface DesktopApi {
+  ready: () => Promise<void>;
+  textPolicy?: import("../../packages/desktop-contracts/src/text-policy").TextPolicy;
   documents: {
-    list: (offset?: number) => Promise<DocumentSummary[]>;
+    list: (offset?: number, limit?: number) => Promise<DocumentSummary[]>;
     get: (id: string) => Promise<SavedDocument | null>;
     create: (input: { title: string; text: string }) => Promise<SavedDocument>;
     save: (id: string, revision: number, input: { title: string; text: string }) => Promise<DocumentWriteResult>;
